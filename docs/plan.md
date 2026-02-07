@@ -29,6 +29,7 @@ A personal AI chat backend that maintains one infinite conversation thread. No s
 - [x] **12 tests passing** — All endpoints tested with fakes (no API key required)
 - [x] **Frontend (Next.js 16.1)** — Chat UI with optimistic updates, infinite scroll, Tailwind styling
 - [x] **CORS middleware** — Backend configured for frontend on localhost:3000/3001 and *.vercel.app
+- [x] **OllamaClient** — Local inference via Ollama (llama3.2, mistral, etc.) — privacy-first, no API costs
 
 ### File Structure
 
@@ -47,6 +48,7 @@ mega_meem/
 │   ├── db.py                 # SqliteMessageStore
 │   ├── claude_client.py      # ClaudeClient (Anthropic)
 │   ├── gemini_client.py      # GeminiClient (Google)
+│   ├── ollama_client.py      # OllamaClient (local inference)
 │   └── main.py               # FastAPI app, lifespan, routes
 ├── tests/
 │   ├── conftest.py           # Fakes + test client fixture
@@ -62,23 +64,11 @@ mega_meem/
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /chat | Send message, get LLM response (Gemini or Claude) |
+| POST | /chat | Send message, get LLM response (Ollama, Gemini, or Claude) |
 | GET | /chat/history | Paginated message history (newest first) |
 | POST | /admin/archive | Move all messages to cold storage |
 
 ## Next Steps
-
-### Immediate
-
-1. **Ollama support (local inference)** — Privacy-first, free local models
-   - Why: No data leaves machine, no API costs, no provider logging
-   - Target model: `llama3.2:8b`
-   - Hardware: M1 Pro 16GB ✓
-   - Implementation:
-     - [ ] `OllamaClient` implementing `LLMClient` protocol
-     - [ ] Config: `LLM_PROVIDER=ollama`, `OLLAMA_MODEL`, `OLLAMA_BASE_URL`
-     - [ ] Update factory in `dependencies.py`
-     - [ ] Test with fake (no Ollama required for CI)
 
 ### Deployment
 
@@ -132,7 +122,7 @@ npm run dev
 
 Set in `.env`:
 ```bash
-LLM_PROVIDER=gemini          # or "anthropic"
+LLM_PROVIDER=gemini          # or "anthropic" or "ollama"
 GEMINI_API_KEY=your-key      # Get from https://aistudio.google.com/apikey
 GEMINI_MODEL=gemini-2.5-flash
 
@@ -140,6 +130,11 @@ GEMINI_MODEL=gemini-2.5-flash
 # LLM_PROVIDER=anthropic
 # ANTHROPIC_API_KEY=sk-ant-...
 # ANTHROPIC_MODEL=claude-sonnet-4-20250514
+
+# Or for Ollama (local, private, free):
+# LLM_PROVIDER=ollama
+# OLLAMA_MODEL=llama3.2:8b
+# OLLAMA_BASE_URL=http://localhost:11434  # default
 ```
 
 ## Running with Docker
@@ -235,7 +230,7 @@ NEXT_PUBLIC_API_URL=https://api.example.com  # Prod
 ## Architecture Notes
 
 - **Protocols over concrete classes** — Route handlers depend on `MessageStore` and `LLMClient` protocols, not concrete implementations. This enables testing with fakes and swapping providers.
-- **Multi-provider LLM** — Factory function `create_llm_client()` selects Gemini or Anthropic based on `LLM_PROVIDER` env var. Easy to add more providers.
+- **Multi-provider LLM** — Factory function `create_llm_client()` selects Ollama, Gemini, or Anthropic based on `LLM_PROVIDER` env var.
 - **Dependency injection via FastAPI** — `Depends(get_message_store)` allows swapping implementations at runtime or in tests via `app.dependency_overrides`.
 - **Cursor pagination** — Uses ISO 8601 timestamps as cursors. They sort lexicographically, so `WHERE timestamp < cursor` works correctly.
 - **Atomic archive** — Uses SQLite transaction: INSERT SELECT + DELETE wrapped in BEGIN/COMMIT.

@@ -13,6 +13,7 @@ from app.dependencies import (
     set_message_store,
 )
 from app.gemini_client import GeminiClient
+from app.ollama_client import OllamaClient
 from app.protocols import LLMClient, MessageStore
 from app.schemas import (
     ArchiveResponse,
@@ -29,6 +30,8 @@ def create_llm_client() -> LLMClient | None:
         return GeminiClient(settings.gemini_api_key, settings.gemini_model)
     elif settings.llm_provider == "anthropic" and settings.anthropic_api_key:
         return ClaudeClient(settings.anthropic_api_key, settings.anthropic_model)
+    elif settings.llm_provider == "ollama":
+        return OllamaClient(settings.ollama_model, settings.ollama_base_url)
     return None
 
 
