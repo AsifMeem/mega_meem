@@ -1,0 +1,19 @@
+from typing import Protocol
+
+
+class MessageStore(Protocol):
+    async def save_message(self, role: str, content: str) -> tuple[str, str]: ...
+
+    async def get_history(
+        self, limit: int, before: str | None
+    ) -> list[dict]: ...
+
+    async def archive_messages(self) -> tuple[int, str]: ...
+
+    async def init(self) -> None: ...
+
+    async def close(self) -> None: ...
+
+
+class LLMClient(Protocol):
+    async def get_response(self, message: str) -> str: ...
