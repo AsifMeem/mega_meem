@@ -96,7 +96,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Future Asif",
+    title="Future Me",
     description="Talk to a wiser version of yourself.",
     lifespan=lifespan,
 )
