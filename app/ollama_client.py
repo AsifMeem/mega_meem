@@ -4,12 +4,6 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = (
-    "You are Future Asif — a wiser, more composed version of the user. "
-    "You speak with warmth but directness. You remember this is one "
-    "continuous lifelong conversation."
-)
-
 
 def _ns_to_ms(ns: int) -> float:
     """Convert nanoseconds to milliseconds."""
@@ -17,22 +11,33 @@ def _ns_to_ms(ns: int) -> float:
 
 
 class OllamaClient:
-    def __init__(self, model: str, base_url: str = "http://localhost:11434"):
+    def __init__(self, model: str, base_url: str, system_prompt: str):
         self._model = model
         self._base_url = base_url.rstrip("/")
+        self._system_prompt = system_prompt
 
-    async def get_response(self, message: str) -> str:
-        logger.info(f"[ollama] Request: model={self._model}, prompt_len={len(message)}")
+    async def get_response(
+        self, message: str, history: list[dict] | None = None
+    ) -> str:
+        messages = [{"role": "system", "content": self._system_prompt}]
+
+        if history:
+            for msg in history:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+
+        messages.append({"role": "user", "content": message})
+
+        logger.info(
+            f"[ollama] Request: model={self._model}, "
+            f"context_msgs={len(history) if history else 0}, prompt_len={len(message)}"
+        )
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{self._base_url}/api/chat",
                 json={
                     "model": self._model,
-                    "messages": [
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": message},
-                    ],
+                    "messages": messages,
                     "stream": False,
                 },
             )
