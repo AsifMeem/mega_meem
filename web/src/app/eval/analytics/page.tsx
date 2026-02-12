@@ -22,12 +22,16 @@ export default function AnalyticsPage() {
   const [stats, setStats] = useState<PerformanceStats | null>(null);
   const [traces, setTraces] = useState<Trace[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([getPerformanceStats(), getTraces(500)])
       .then(([ps, ts]) => {
         setStats(ps);
         setTraces(ts.traces);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load analytics");
       })
       .finally(() => setLoading(false));
   }, []);
@@ -37,6 +41,15 @@ export default function AnalyticsPage() {
       <div className="flex flex-col items-center justify-center py-16">
         <div className="h-6 w-6 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
         <p className="mt-3 text-sm text-gray-400">Loading analytics...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <p className="text-sm font-medium text-gray-900">Failed to load analytics</p>
+        <p className="mt-1 text-sm text-gray-400">{error}</p>
       </div>
     );
   }
