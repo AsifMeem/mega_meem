@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getAdminMessages, getMessageStats, getPerformanceStats } from "@/lib/api";
-import type { AdminMessagesResponse, Message, MessageStats, PerformanceStats } from "@/lib/types";
+import type { AdminMessage, AdminMessagesResponse, MessageStats, PerformanceStats } from "@/lib/types";
 
 export default function HistoryPage() {
   const [stats, setStats] = useState<MessageStats | null>(null);
   const [perfStats, setPerfStats] = useState<PerformanceStats | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<AdminMessage[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [roleFilter, setRoleFilter] = useState<string | undefined>();
@@ -33,7 +33,7 @@ export default function HistoryPage() {
   }, []);
 
   // Fetch messages when filters change
-  const fetchMessages = useCallback(async () => {
+  const fetchAdminMessages = useCallback(async () => {
     setLoading(true);
     try {
       const data: AdminMessagesResponse = await getAdminMessages({
@@ -50,8 +50,8 @@ export default function HistoryPage() {
   }, [offset, roleFilter, debouncedQuery]);
 
   useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
+    fetchAdminMessages();
+  }, [fetchAdminMessages]);
 
   // Reset offset when filters change
   useEffect(() => {
@@ -159,6 +159,11 @@ export default function HistoryPage() {
                         >
                           {msg.role}
                         </span>
+                        {msg.session_id && (
+                          <span className="shrink-0 text-[10px] text-gray-400 font-mono bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
+                            {msg.session_id.slice(0, 8)}
+                          </span>
+                        )}
                         {expandedId === msg.id ? (
                           <span className="text-gray-800 whitespace-pre-wrap leading-relaxed">{msg.content}</span>
                         ) : (
@@ -211,8 +216,8 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function groupByDay(messages: Message[]): { day: string; msgs: Message[] }[] {
-  const groups = new Map<string, Message[]>();
+function groupByDay(messages: AdminMessage[]): { day: string; msgs: AdminMessage[] }[] {
+  const groups = new Map<string, AdminMessage[]>();
   for (const msg of messages) {
     const day = new Date(msg.timestamp).toLocaleDateString("en-US", {
       weekday: "long",

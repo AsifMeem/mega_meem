@@ -47,6 +47,32 @@ async def test_admin_messages_includes_session_history(client, fake_store):
 
 
 @pytest.mark.asyncio
+async def test_admin_messages_session_id_present(client, fake_store):
+    """Active messages have session_id=null; history messages have a session_id."""
+    # Create a first session so there's an active session to close
+    await client.post("/admin/sessions", json={"note": "first"})
+    await client.post("/chat", json={"message": "Old message"})
+    # Create a second session — this closes the first and moves messages to history
+    await client.post("/admin/sessions", json={"note": "second"})
+    await client.post("/chat", json={"message": "New message"})
+
+    response = await client.get("/admin/messages")
+    data = response.json()
+    msgs = data["messages"]
+
+    # Every message should have the session_id key
+    assert all("session_id" in m for m in msgs)
+
+    # Active messages (from current session) should have null session_id
+    active = [m for m in msgs if m["session_id"] is None]
+    assert len(active) >= 2  # at least user + assistant from "New message"
+
+    # History messages should have a non-null session_id
+    history = [m for m in msgs if m["session_id"] is not None]
+    assert len(history) >= 2  # at least user + assistant from "Old message"
+
+
+@pytest.mark.asyncio
 async def test_admin_messages_pagination(client):
     for i in range(5):
         await client.post("/chat", json={"message": f"msg {i}"})

@@ -82,12 +82,6 @@ class FakeMessageStore:
                     "started_at": prev["started_at"],
                     "ended_at": now,
                 }
-        else:
-            # First session: move any pre-session messages to history
-            for msg in self.messages:
-                self.session_history.append({**msg, "session_id": None})
-            self.messages.clear()
-
         session = {
             "id": new_id,
             "started_at": now,
@@ -146,8 +140,10 @@ class FakeMessageStore:
         query: str | None = None,
     ) -> tuple[list[dict], int]:
         # Combine active + session history
-        all_msgs = list(self.messages) + [
-            {"id": sh["id"], "role": sh["role"], "content": sh["content"], "timestamp": sh["timestamp"]}
+        all_msgs = [
+            {**m, "session_id": None} for m in self.messages
+        ] + [
+            {"id": sh["id"], "role": sh["role"], "content": sh["content"], "timestamp": sh["timestamp"], "session_id": sh["session_id"]}
             for sh in self.session_history
         ]
         if role:

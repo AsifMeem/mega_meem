@@ -120,7 +120,15 @@ export interface PerformanceStats {
   by_provider: Record<string, ProviderStats>;
 }
 
+export interface AdminMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+  session_id: string | null;
+}
+
 export interface AdminMessagesResponse {
-  messages: Message[];
+  messages: AdminMessage[];
   total: number;
 }

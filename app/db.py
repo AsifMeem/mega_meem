@@ -263,9 +263,9 @@ class SqliteMessageStore:
 
         # Union active messages and session_history
         union_query = f"""
-            SELECT id, role, content, timestamp FROM messages {where}
+            SELECT id, role, content, timestamp, NULL as session_id FROM messages {where}
             UNION ALL
-            SELECT id, role, content, timestamp FROM session_history {where}
+            SELECT id, role, content, timestamp, session_id FROM session_history {where}
         """
         # For the union, params are used twice (once per SELECT)
         union_params = params + params
@@ -278,7 +278,7 @@ class SqliteMessageStore:
 
         # Fetch page
         page_sql = f"""
-            SELECT id, role, content, timestamp FROM ({union_query})
+            SELECT id, role, content, timestamp, session_id FROM ({union_query})
             ORDER BY timestamp DESC
             LIMIT ? OFFSET ?
         """
@@ -286,7 +286,7 @@ class SqliteMessageStore:
         rows = await cur.fetchall()
 
         messages = [
-            {"id": r[0], "role": r[1], "content": r[2], "timestamp": r[3]}
+            {"id": r[0], "role": r[1], "content": r[2], "timestamp": r[3], "session_id": r[4]}
             for r in rows
         ]
         return messages, total

@@ -143,6 +143,14 @@ class PerformanceStats(BaseModel):
 # --- Admin Messages ---
 
 
+class AdminMessage(BaseModel):
+    id: str
+    role: str
+    content: str
+    timestamp: str
+    session_id: str | None
+
+
 class AdminMessagesResponse(BaseModel):
-    messages: list[HistoryMessage]
+    messages: list[AdminMessage]
     total: int

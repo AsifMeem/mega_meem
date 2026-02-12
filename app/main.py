@@ -26,6 +26,7 @@ from app.gemini_client import GeminiClient
 from app.ollama_client import OllamaClient
 from app.protocols import LLMClient, MessageStore, TraceStore
 from app.schemas import (
+    AdminMessage,
     AdminMessagesResponse,
     ArchiveResponse,
     ChatRequest,
@@ -254,7 +255,7 @@ async def admin_messages(
         limit=limit, offset=offset, role=role, query=q
     )
     return AdminMessagesResponse(
-        messages=[HistoryMessage(**m) for m in messages],
+        messages=[AdminMessage(**m) for m in messages],
         total=total,
     )
 
