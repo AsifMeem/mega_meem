@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onClose={() => setSessionDialogOpen(false)}
         onCreated={() => {
           setSessionDialogOpen(false);
-          window.location.href = "/";
+          window.location.reload();
         }}
       />
     </>
