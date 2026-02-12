@@ -1,4 +1,4 @@
-import type { ChatResponse, HistoryResponse } from "./types";
+import type { ChatResponse, HistoryResponse, TracesResponse } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -25,6 +25,21 @@ export async function getHistory(
   const res = await fetch(`${API_URL}/chat/history?${params}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch history: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getTraces(
+  limit = 50,
+  offset = 0
+): Promise<TracesResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const res = await fetch(`${API_URL}/admin/traces?${params}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch traces: ${res.status}`);
   }
   return res.json();
 }
