@@ -17,14 +17,16 @@ async def test_create_session_returns_session_id_and_config(client):
 
 @pytest.mark.asyncio
 async def test_create_session_moves_messages_to_history(client, fake_store):
+    # Create first session so there's an active one to close
+    await client.post("/admin/sessions", json={"note": "Session 1"})
+
     # Add some messages to the active conversation
     await client.post("/chat", json={"message": "Hello"})
     await client.post("/chat", json={"message": "How are you?"})
     assert len(fake_store.messages) == 4  # 2 user + 2 assistant
 
-    # Create first session (establishes an active session)
-    await client.post("/admin/sessions", json={"note": "Session 1"})
-    # Messages moved to session_history, active table cleared
+    # Create second session — closes the first and moves messages
+    await client.post("/admin/sessions", json={"note": "Session 2"})
     assert len(fake_store.messages) == 0
     assert len(fake_store.session_history) == 4
 
@@ -66,6 +68,9 @@ async def test_list_sessions_returns_all_sessions(client):
 
 @pytest.mark.asyncio
 async def test_new_session_resets_llm_context(client, fake_store, fake_llm):
+    # Create a session so there's an active one to close later
+    await client.post("/admin/sessions", json={"note": "Initial"})
+
     # Chat to build history
     await client.post("/chat", json={"message": "Remember this"})
     assert fake_llm.last_history is None  # No history on first message
@@ -73,7 +78,7 @@ async def test_new_session_resets_llm_context(client, fake_store, fake_llm):
     await client.post("/chat", json={"message": "And this"})
     assert fake_llm.last_history is not None  # Has history now
 
-    # Start new session
+    # Start new session — closes previous, moves messages
     await client.post("/admin/sessions", json={"note": "Fresh start"})
 
     # Next chat should have no history (clean slate)
