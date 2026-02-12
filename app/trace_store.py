@@ -56,6 +56,7 @@ class DuckDBTraceStore:
         }
         if "messages_in" in cols and "raw_messages_in" not in cols:
             self._conn.execute("ALTER TABLE traces RENAME COLUMN messages_in TO raw_messages_in")
+            cols.add("raw_messages_in")
         # Add new columns if missing (for existing DBs)
         for col, typ in [
             ("system_prompt", "VARCHAR"),
