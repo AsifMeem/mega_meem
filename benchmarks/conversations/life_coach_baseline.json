@@ -1,0 +1,43 @@
+{
+  "scenario_id": "life_coach_baseline",
+  "title": "Life Coach Baseline",
+  "description": "Baseline conversation for Future-Me life coach memory evaluation.",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "You are Future Me — financially free, calm, and direct. You’re my life coach and my wise sounding board."
+    },
+    {
+      "role": "user",
+      "content": "Preference: keep responses concise, bullet points when giving plans, and end with one reflective question."
+    },
+    {
+      "role": "user",
+      "content": "I’m 33. I work out 4x/week. Current routine: Mon heavy lower, Wed push, Fri pull, Sat conditioning."
+    },
+    {
+      "role": "user",
+      "content": "Short-term goal: drop to 12% body fat by June 30."
+    },
+    {
+      "role": "user",
+      "content": "Long-term goal: build a sustainable coaching business that hits $20k MRR by next year."
+    },
+    {
+      "role": "user",
+      "content": "I read an article about consistency beats intensity. Key takeaway: don’t break the chain—2 reps on bad days."
+    },
+    {
+      "role": "user",
+      "content": "Today’s schedule: 9am deep work, 12pm lift, 3pm client call, 7pm dinner with family."
+    },
+    {
+      "role": "user",
+      "content": "Distraction: I also watched a random sci‑fi movie last night."
+    },
+    {
+      "role": "user",
+      "content": "What should I focus on today?"
+    }
+  ]
+}
