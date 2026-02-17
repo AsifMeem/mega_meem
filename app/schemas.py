@@ -154,3 +154,63 @@ class AdminMessage(BaseModel):
 class AdminMessagesResponse(BaseModel):
     messages: list[AdminMessage]
     total: int
+
+
+# --- Benchmarks ---
+
+
+class BenchRun(BaseModel):
+    id: str
+    scenario_id: str
+    title: str
+    provider: str
+    model: str
+    context_messages: int | None
+    started_at: str | None
+    ended_at: str | None
+    notes: str | None
+    summary: dict | None
+
+
+class BenchRunsResponse(BaseModel):
+    runs: list[BenchRun]
+
+
+class BenchTurn(BaseModel):
+    idx: int
+    role: str
+    content: str
+    response: str | None
+    latency_ms: float | None
+    trace_id: str | None
+
+
+class BenchProbe(BaseModel):
+    idx: int
+    probe_id: str
+    probe_type: str
+    question: str
+    expected: dict | None
+    response: str
+    score: float
+    metrics: dict | None
+
+
+class BenchRunDetail(BenchRun):
+    turns: list[BenchTurn]
+    probes: list[BenchProbe]
+    scores: dict[str, float]
+
+
+class BenchSummaryRow(BaseModel):
+    run_id: str
+    metric: str
+    value: float
+    provider: str
+    model: str
+    scenario_id: str
+    started_at: str | None
+
+
+class BenchSummaryResponse(BaseModel):
+    rows: list[BenchSummaryRow]

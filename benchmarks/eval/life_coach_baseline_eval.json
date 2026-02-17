@@ -1,0 +1,48 @@
+{
+  "scenario_id": "life_coach_baseline",
+  "probes": [
+    {
+      "id": "recall_routine",
+      "type": "short_term",
+      "question": "Remind me what my current training split is.",
+      "expected_any": ["Mon", "Wed", "Fri", "Sat", "lower", "push", "pull", "conditioning"],
+      "must_include": ["Mon", "Wed", "Fri", "Sat"]
+    },
+    {
+      "id": "recall_short_term_goal",
+      "type": "long_term",
+      "question": "What’s my short‑term body composition goal and deadline?",
+      "expected_any": ["12%", "June", "June 30"],
+      "must_include": ["12%", "June"]
+    },
+    {
+      "id": "recall_long_term_goal",
+      "type": "long_term",
+      "question": "What long‑term business goal did I tell you?",
+      "expected_any": ["coaching", "$20k", "MRR", "next year"],
+      "must_include": ["$20k", "MRR"]
+    },
+    {
+      "id": "recall_reading",
+      "type": "long_term",
+      "question": "What was the key takeaway from the article I read?",
+      "expected_any": ["consistency", "beats intensity", "don’t break the chain", "2 reps"],
+      "must_include": ["consistency", "chain"]
+    },
+    {
+      "id": "preference_adherence",
+      "type": "preference",
+      "question": "Give me a quick plan for today.",
+      "expected_any": ["-", "•"],
+      "must_include": ["?"],
+      "notes": "Should be concise, bullet points for plans, and end with a reflective question."
+    },
+    {
+      "id": "schedule_application",
+      "type": "coaching",
+      "question": "Given my schedule, what should I do before my 3pm client call?",
+      "expected_any": ["deep work", "lift", "prep", "client"],
+      "must_include": ["3pm"]
+    }
+  ]
+}
