@@ -116,7 +116,11 @@ export default function BenchPage() {
                 className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2 last:border-b-0"
               >
                 <div>
-                  <div className="text-sm font-medium text-gray-900">{run.title}</div>
+                  <div className="text-sm font-medium text-gray-900">
+                    <a className="hover:underline" href={`/eval/bench/${run.id}`}>
+                      {run.title}
+                    </a>
+                  </div>
                   <div className="text-xs text-gray-400">{run.provider} · {run.model} · {run.scenario_id}</div>
                 </div>
                 <div className="text-xs text-gray-500 font-mono">
