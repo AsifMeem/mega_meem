@@ -8,6 +8,9 @@ import type {
   SessionResponse,
   SessionsResponse,
   TracesResponse,
+  BenchRunsResponse,
+  BenchRunDetail,
+  BenchSummaryResponse,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -126,6 +129,37 @@ export async function getPerformanceStats(): Promise<PerformanceStats> {
   const res = await fetch(`${API_URL}/admin/stats/performance`);
   if (!res.ok) {
     throw new Error(`Failed to fetch performance stats: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getBenchRuns(
+  limit = 50,
+  offset = 0
+): Promise<BenchRunsResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const res = await fetch(`${API_URL}/admin/bench/runs?${params}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch bench runs: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getBenchRun(runId: string): Promise<BenchRunDetail> {
+  const res = await fetch(`${API_URL}/admin/bench/run/${runId}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch bench run: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getBenchSummary(): Promise<BenchSummaryResponse> {
+  const res = await fetch(`${API_URL}/admin/bench/summary`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch bench summary: ${res.status}`);
   }
   return res.json();
 }
