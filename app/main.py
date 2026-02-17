@@ -18,9 +18,11 @@ from app.dependencies import (
     get_llm_client,
     get_message_store,
     get_trace_store,
+    get_bench_store,
     set_llm_client,
     set_message_store,
     set_trace_store,
+    set_bench_store,
 )
 from app.gemini_client import GeminiClient
 from app.ollama_client import OllamaClient
@@ -44,8 +46,12 @@ from app.schemas import (
     SessionsResponse,
     Trace,
     TracesResponse,
+    BenchRunsResponse,
+    BenchRunDetail,
+    BenchSummaryResponse,
 )
 from app.trace_store import DuckDBTraceStore
+from app.bench_store import DuckDBBenchStore
 
 
 def create_llm_client() -> LLMClient | None:
@@ -86,6 +92,10 @@ async def lifespan(app: FastAPI):
     trace_store.init()
     set_trace_store(trace_store)
 
+    bench_store = DuckDBBenchStore(settings.trace_db_path)
+    bench_store.init()
+    set_bench_store(bench_store)
+
     llm = create_llm_client()
     if llm:
         set_llm_client(llm)
@@ -94,6 +104,7 @@ async def lifespan(app: FastAPI):
 
     await store.close()
     trace_store.close()
+    bench_store.close()
 
 
 app = FastAPI(
@@ -277,3 +288,35 @@ def performance_stats(
 ) -> PerformanceStats:
     stats = traces.get_performance_stats()
     return PerformanceStats(**stats)
+
+
+# --- Benchmarks ---
+
+
+@app.get("/admin/bench/runs", response_model=BenchRunsResponse)
+def list_bench_runs(
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    bench=Depends(get_bench_store),
+) -> BenchRunsResponse:
+    runs = bench.list_runs(limit=limit, offset=offset)
+    return BenchRunsResponse(runs=runs)
+
+
+@app.get("/admin/bench/run/{run_id}", response_model=BenchRunDetail)
+def get_bench_run(
+    run_id: str,
+    bench=Depends(get_bench_store),
+) -> BenchRunDetail:
+    run = bench.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Bench run not found")
+    return BenchRunDetail(**run)
+
+
+@app.get("/admin/bench/summary", response_model=BenchSummaryResponse)
+def bench_summary(
+    bench=Depends(get_bench_store),
+) -> BenchSummaryResponse:
+    rows = bench.get_summary()
+    return BenchSummaryResponse(rows=rows)
