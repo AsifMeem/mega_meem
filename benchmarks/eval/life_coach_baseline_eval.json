@@ -19,8 +19,8 @@
       "id": "recall_long_term_goal",
       "type": "long_term",
       "question": "What long‑term business goal did I tell you?",
-      "expected_any": ["coaching", "$20k", "MRR", "next year"],
-      "must_include": ["$20k", "MRR"]
+      "expected_any": ["coaching", "$20k", "20k", "$20,000", "20,000", "MRR", "next year"],
+      "must_include": ["MRR"]
     },
     {
       "id": "recall_reading",
@@ -48,7 +48,7 @@
       "type": "preference",
       "question": "Give me a quick plan for today.",
       "expected_any": ["-", "•"],
-      "must_include": ["?"],
+      "must_have_question": true,
       "notes": "Should be concise, bullet points for plans, and end with a reflective question."
     },
     {

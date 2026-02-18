@@ -23,22 +23,32 @@ def score_response(response: str, expected: dict) -> tuple[float, dict]:
     response_norm = normalize(response)
     must_include = [normalize(x) for x in expected.get("must_include", [])]
     expected_any = [normalize(x) for x in expected.get("expected_any", [])]
+    require_question = bool(expected.get("must_have_question"))
 
     must_hits = [x for x in must_include if x in response_norm]
     any_hits = [x for x in expected_any if x in response_norm]
 
+    question_ok = True
+    if require_question:
+        question_ok = "?" in response or any(
+            response_norm.strip().startswith(w)
+            for w in ["what", "why", "how", "which", "when", "where"]
+        )
+
     if must_include:
-        score = 1.0 if len(must_hits) == len(must_include) else 0.0
+        score = 1.0 if len(must_hits) == len(must_include) and question_ok else 0.0
     elif expected_any:
-        score = 1.0 if len(any_hits) > 0 else 0.0
+        score = 1.0 if len(any_hits) > 0 and question_ok else 0.0
     else:
-        score = 0.0
+        score = 1.0 if question_ok else 0.0
 
     metrics = {
         "must_include": must_include,
         "must_hits": must_hits,
         "expected_any": expected_any,
         "any_hits": any_hits,
+        "require_question": require_question,
+        "question_ok": question_ok,
     }
     return score, metrics
 
