@@ -31,11 +31,17 @@ class DuckDBMemoryStore:
             self._conn.close()
             self._conn = None
 
-    def add_memory(self, role: str, content: str, vector: list[float]) -> str:
+    def add_memory(
+        self,
+        role: str,
+        content: str,
+        vector: list[float],
+        created_at: datetime | None = None,
+    ) -> str:
         if not self._conn:
             raise RuntimeError("MemoryStore not initialized")
         mem_id = uuid4().hex
-        now = datetime.now(timezone.utc)
+        now = created_at or datetime.now(timezone.utc)
         self._conn.execute(
             """
             INSERT INTO memory_chunks (id, role, content, vector, created_at)

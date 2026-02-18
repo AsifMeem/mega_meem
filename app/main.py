@@ -1,8 +1,9 @@
 import logging
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
 logging.basicConfig(
     level=logging.INFO,
@@ -110,13 +111,29 @@ def _cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
-async def retrieve_memories(memory_store, query: str, top_k: int) -> list[dict]:
+async def retrieve_memories(
+    memory_store,
+    query: str,
+    top_k: int,
+    now_dt: datetime | None = None,
+) -> list[dict]:
     query_vec = await embed_text(query)
     memories = memory_store.list_memories()
     scored = []
+    now_dt = now_dt or datetime.now(timezone.utc)
     for m in memories:
-        score = _cosine(query_vec, m.get("vector", []))
-        scored.append((score, m))
+        base = _cosine(query_vec, m.get("vector", []))
+        created_at = m.get("created_at")
+        if created_at:
+            try:
+                mem_dt = datetime.fromisoformat(created_at)
+            except ValueError:
+                mem_dt = now_dt
+            age_days = max((now_dt - mem_dt).total_seconds() / 86400.0, 0.0)
+            recency = 1.0 / (1.0 + age_days / 30.0)
+        else:
+            recency = 1.0
+        scored.append((base * recency, m))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [m for score, m in scored[:top_k] if score > 0]
 
@@ -173,6 +190,7 @@ app.add_middleware(
 @app.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
+    http_request: Request,
     store: MessageStore = Depends(get_message_store),
     llm: LLMClient = Depends(get_llm_client),
     traces: TraceStore = Depends(get_trace_store),
@@ -183,9 +201,19 @@ async def chat(
     history = list(reversed(history_rows)) if history_rows else None
 
     # Long-term memory retrieval (naive similarity)
+    simulated_time = http_request.headers.get("x-simulated-time")
+    now_dt = None
+    if simulated_time:
+        try:
+            now_dt = datetime.fromisoformat(simulated_time.replace("Z", "+00:00"))
+        except ValueError:
+            now_dt = None
+
     memories = []
     if settings.memory_top_k > 0:
-        memories = await retrieve_memories(memory, request.message, settings.memory_top_k)
+        memories = await retrieve_memories(
+            memory, request.message, settings.memory_top_k, now_dt=now_dt
+        )
 
     memory_context = None
     if memories:
@@ -243,8 +271,8 @@ async def chat(
     # Persist to long-term memory (user + assistant)
     user_vec = await embed_text(request.message)
     assistant_vec = await embed_text(response_text)
-    memory.add_memory("user", request.message, user_vec)
-    memory.add_memory("assistant", response_text, assistant_vec)
+    memory.add_memory("user", request.message, user_vec, created_at=now_dt)
+    memory.add_memory("assistant", response_text, assistant_vec, created_at=now_dt)
 
     return ChatResponse(id=msg_id, response=response_text, timestamp=timestamp, trace_id=trace_id)
 
