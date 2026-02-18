@@ -29,6 +29,14 @@
     },
     {
       "role": "user",
+      "content": "I’m reading a book called The DOSE Effect. It says Dopamine drives motivation, Oxytocin deepens trust, Serotonin builds confidence, and Endorphins reduce stress."
+    },
+    {
+      "role": "user",
+      "content": "The author TJ says my challenge is chasing dopamine via novelty and neglecting serotonin habits like consistent progress tracking."
+    },
+    {
+      "role": "user",
       "content": "Today’s schedule: 9am deep work, 12pm lift, 3pm client call, 7pm dinner with family."
     },
     {

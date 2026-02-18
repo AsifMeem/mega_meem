@@ -30,6 +30,20 @@
       "must_include": ["consistency", "chain"]
     },
     {
+      "id": "dose_recall_components",
+      "type": "long_term",
+      "question": "What does DOSE stand for in the book I mentioned?",
+      "expected_any": ["dopamine", "oxytocin", "serotonin", "endorphins"],
+      "must_include": ["dopamine", "oxytocin", "serotonin", "endorphins"]
+    },
+    {
+      "id": "dose_challenge",
+      "type": "long_term",
+      "question": "What did TJ say my challenge was in the DOSE Effect book?",
+      "expected_any": ["chasing dopamine", "novelty", "neglecting serotonin", "progress tracking"],
+      "must_include": ["dopamine", "serotonin"]
+    },
+    {
       "id": "preference_adherence",
       "type": "preference",
       "question": "Give me a quick plan for today.",
