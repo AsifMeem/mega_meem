@@ -63,6 +63,7 @@ export default function BenchPage() {
 
   const overallSeries = buildMetricSeries(summary, "score_overall");
   const typeBreakdown = buildTypeBreakdown(summary);
+  const ageBreakdown = buildAgeBreakdown(summary);
 
   return (
     <div className="px-6 py-8">
@@ -112,6 +113,23 @@ export default function BenchPage() {
             </BarChart>
           </ResponsiveContainer>
         </ChartSection>
+
+        {ageBreakdown.length > 0 && (
+          <ChartSection title="Memory Retention by Age Bucket (Latest Run)">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={ageBreakdown}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="metric" stroke="#9CA3AF" fontSize={12} />
+                <YAxis stroke="#9CA3AF" fontSize={12} domain={[0, 1]} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: "8px", fontSize: "12px" }}
+                  labelStyle={{ color: "#6B7280" }}
+                />
+                <Bar dataKey="value" fill="#7C3AED" name="Score" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartSection>
+        )}
 
         <div className="rounded-lg border border-gray-200 bg-white p-5">
           <h3 className="text-sm font-medium text-gray-900 mb-4">Recent Runs</h3>
@@ -180,11 +198,25 @@ function buildTypeBreakdown(rows: BenchSummaryRow[]) {
   const latestRunId = latest[0]?.run_id;
   const filtered = latest.filter((r) => r.run_id === latestRunId && r.metric.startsWith("score_"));
   return filtered
-    .filter((r) => r.metric !== "score_overall")
+    .filter((r) => r.metric !== "score_overall" && !r.metric.startsWith("score_age_"))
     .map((r) => ({
       metric: r.metric.replace("score_", ""),
       value: r.value,
     }));
+}
+
+function buildAgeBreakdown(rows: BenchSummaryRow[]) {
+  const latest = rows
+    .slice()
+    .sort((a, b) => new Date(b.started_at ?? 0).getTime() - new Date(a.started_at ?? 0).getTime());
+  const latestRunId = latest[0]?.run_id;
+  const filtered = latest.filter(
+    (r) => r.run_id === latestRunId && r.metric.startsWith("score_age_")
+  );
+  return filtered.map((r) => ({
+    metric: r.metric.replace("score_age_", ""),
+    value: r.value,
+  }));
 }
 
 function getLatestScore(run: BenchRun | undefined) {
