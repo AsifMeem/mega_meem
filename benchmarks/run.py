@@ -81,13 +81,18 @@ def run_benchmark(base_url: str, scenario_path: Path, eval_path: Path) -> dict:
         "probes": [],
     }
 
-    def run_with_client(client) -> list[tuple[str, float]]:
+    def run_with_client(client) -> tuple[list[tuple[str, float]], list[tuple[str, float]]]:
         client.post("/admin/sessions", json={"note": f"bench:{scenario['scenario_id']}"})
 
+        last_ts = None
         for idx, turn in enumerate(scenario["conversation"]):
             if turn["role"] != "user":
                 continue
-            resp = client.post("/chat", json={"message": turn["content"]})
+            headers = {}
+            if turn.get("timestamp"):
+                last_ts = turn["timestamp"]
+                headers["x-simulated-time"] = turn["timestamp"]
+            resp = client.post("/chat", json={"message": turn["content"]}, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             bench.add_turn(
@@ -108,8 +113,12 @@ def run_benchmark(base_url: str, scenario_path: Path, eval_path: Path) -> dict:
             )
 
         score_rows: list[tuple[str, float]] = []
+        age_rows: list[tuple[str, float]] = []
         for pidx, probe in enumerate(probes):
-            resp = client.post("/chat", json={"message": probe["question"]})
+            headers = {}
+            if last_ts:
+                headers["x-simulated-time"] = last_ts
+            resp = client.post("/chat", json={"message": probe["question"]}, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             response_text = data.get("response", "")
@@ -127,6 +136,8 @@ def run_benchmark(base_url: str, scenario_path: Path, eval_path: Path) -> dict:
                 metrics=metrics,
             )
             score_rows.append((probe.get("type", "unknown"), score))
+            if probe.get("age_bucket"):
+                age_rows.append((probe["age_bucket"], score))
             results["probes"].append(
                 {
                     "id": probe["id"],
@@ -137,14 +148,14 @@ def run_benchmark(base_url: str, scenario_path: Path, eval_path: Path) -> dict:
                     "metrics": metrics,
                 }
             )
-        return score_rows
+        return score_rows, age_rows
 
     if base_url == "local":
         with TestClient(app) as client:
-            score_rows = run_with_client(client)
+            score_rows, age_rows = run_with_client(client)
     else:
         with httpx.Client(base_url=base_url, timeout=120.0) as client:
-            score_rows = run_with_client(client)
+            score_rows, age_rows = run_with_client(client)
 
     totals = {}
     counts = {}
@@ -157,6 +168,15 @@ def run_benchmark(base_url: str, scenario_path: Path, eval_path: Path) -> dict:
         scores["score_overall"] = sum(s for _, s in score_rows) / len(score_rows)
     else:
         scores["score_overall"] = 0.0
+
+    if age_rows:
+        age_totals = {}
+        age_counts = {}
+        for bucket, score in age_rows:
+            age_totals[bucket] = age_totals.get(bucket, 0) + score
+            age_counts[bucket] = age_counts.get(bucket, 0) + 1
+        for bucket, total in age_totals.items():
+            scores[f"score_age_{bucket}"] = total / age_counts[bucket]
 
     bench.set_scores(run_id, scores)
     bench.finalize_run(
