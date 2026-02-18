@@ -24,6 +24,7 @@ def score_response(response: str, expected: dict) -> tuple[float, dict]:
     must_include = [normalize(x) for x in expected.get("must_include", [])]
     expected_any = [normalize(x) for x in expected.get("expected_any", [])]
     require_question = bool(expected.get("must_have_question"))
+    max_length = expected.get("max_length")
 
     must_hits = [x for x in must_include if x in response_norm]
     any_hits = [x for x in expected_any if x in response_norm]
@@ -34,12 +35,35 @@ def score_response(response: str, expected: dict) -> tuple[float, dict]:
             w in response_norm for w in [" what ", " why ", " how ", " which ", " when ", " where "]
         )
 
+    length_ok = True
+    if isinstance(max_length, int):
+        length_ok = len(response) <= max_length
+
     if must_include:
         score = 1.0 if len(must_hits) == len(must_include) and question_ok else 0.0
     elif expected_any:
         score = 1.0 if len(any_hits) > 0 and question_ok else 0.0
     else:
         score = 1.0 if question_ok else 0.0
+
+    # Partial credit for preference-style probes
+    if require_question or expected_any or max_length:
+        points = 0
+        total = 0
+        if expected_any:
+            total += 1
+            if len(any_hits) > 0:
+                points += 1
+        if require_question:
+            total += 1
+            if question_ok:
+                points += 1
+        if isinstance(max_length, int):
+            total += 1
+            if length_ok:
+                points += 1
+        if total > 0:
+            score = points / total
 
     metrics = {
         "must_include": must_include,
@@ -48,6 +72,8 @@ def score_response(response: str, expected: dict) -> tuple[float, dict]:
         "any_hits": any_hits,
         "require_question": require_question,
         "question_ok": question_ok,
+        "max_length": max_length,
+        "length_ok": length_ok,
     }
     return score, metrics
 
