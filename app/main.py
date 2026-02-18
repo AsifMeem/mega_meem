@@ -111,12 +111,30 @@ def _cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
+def compute_salience(text: str) -> float:
+    import re
+
+    t = text.lower()
+    score = 1.0
+    if any(k in t for k in ["remember", "important", "goal", "deadline"]):
+        score += 1.0
+    if re.search(r"\b\d{1,2}%\b|\$\d|\b\d{1,2}/\d{1,2}\b", t):
+        score += 0.5
+    if re.search(r"\b(mon|tue|wed|thu|fri|sat|sun)\b", t):
+        score += 0.3
+    if "mrr" in t or "month" in t:
+        score += 0.3
+    return score
+
+
 async def retrieve_memories(
     memory_store,
     query: str,
     top_k: int,
     now_dt: datetime | None = None,
 ) -> list[dict]:
+    import math
+
     query_vec = await embed_text(query)
     memories = memory_store.list_memories()
     scored = []
@@ -132,12 +150,20 @@ async def retrieve_memories(
             if mem_dt.tzinfo is None:
                 mem_dt = mem_dt.replace(tzinfo=timezone.utc)
             age_days = max((now_dt - mem_dt).total_seconds() / 86400.0, 0.0)
-            recency = 1.0 / (1.0 + age_days / 30.0)
         else:
-            recency = 1.0
-        scored.append((base * recency, m))
+            age_days = 0.0
+
+        decay_days = m.get("decay_days") or 60.0
+        recency = math.exp(-age_days / max(decay_days, 1.0))
+        salience = m.get("salience") or 1.0
+        usage = 1.0 + math.log1p(m.get("times_recalled", 0)) * 0.2
+        source = 1.1 if m.get("role") == "user" else 1.0
+
+        final = base * recency * (1.0 + salience * 0.1) * usage * source
+        scored.append((final, m))
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [m for score, m in scored[:top_k] if score > 0]
+    top = [m for score, m in scored[:top_k] if score > 0]
+    return top
 
 
 @asynccontextmanager
@@ -216,6 +242,8 @@ async def chat(
         memories = await retrieve_memories(
             memory, request.message, settings.memory_top_k, now_dt=now_dt
         )
+        if memories:
+            memory.mark_recalled([m["id"] for m in memories], recalled_at=now_dt)
 
     memory_context = None
     if memories:
@@ -273,8 +301,24 @@ async def chat(
     # Persist to long-term memory (user + assistant)
     user_vec = await embed_text(request.message)
     assistant_vec = await embed_text(response_text)
-    memory.add_memory("user", request.message, user_vec, created_at=now_dt)
-    memory.add_memory("assistant", response_text, assistant_vec, created_at=now_dt)
+    user_salience = compute_salience(request.message)
+    assistant_salience = compute_salience(response_text)
+    memory.add_memory(
+        "user",
+        request.message,
+        user_vec,
+        created_at=now_dt,
+        salience=user_salience,
+        decay_days=120.0 if user_salience >= 1.5 else 60.0,
+    )
+    memory.add_memory(
+        "assistant",
+        response_text,
+        assistant_vec,
+        created_at=now_dt,
+        salience=assistant_salience,
+        decay_days=90.0 if assistant_salience >= 1.5 else 45.0,
+    )
 
     return ChatResponse(id=msg_id, response=response_text, timestamp=timestamp, trace_id=trace_id)
 
