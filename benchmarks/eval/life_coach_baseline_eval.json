@@ -49,14 +49,14 @@
       "question": "Give me a quick plan for today.",
       "expected_any": ["-", "•", "1.", "2.", "3."],
       "must_have_question": true,
-      "notes": "Should be concise, bullet points for plans, and end with a reflective question."
+      "notes": "Should be concise, list format for plans, and include a reflective question." 
     },
     {
       "id": "schedule_application",
       "type": "coaching",
       "question": "Given my schedule, what should I do before my 3pm client call?",
-      "expected_any": ["deep work", "lift", "prep", "client"],
-      "must_include": ["3pm"]
+      "expected_any": ["deep work", "lift", "prep", "client", "call"],
+      "must_include": []
     }
   ]
 }

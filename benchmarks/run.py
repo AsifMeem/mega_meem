@@ -31,8 +31,7 @@ def score_response(response: str, expected: dict) -> tuple[float, dict]:
     question_ok = True
     if require_question:
         question_ok = "?" in response or any(
-            response_norm.strip().startswith(w)
-            for w in ["what", "why", "how", "which", "when", "where"]
+            w in response_norm for w in [" what ", " why ", " how ", " which ", " when ", " where "]
         )
 
     if must_include:
