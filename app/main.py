@@ -129,6 +129,8 @@ async def retrieve_memories(
                 mem_dt = datetime.fromisoformat(created_at)
             except ValueError:
                 mem_dt = now_dt
+            if mem_dt.tzinfo is None:
+                mem_dt = mem_dt.replace(tzinfo=timezone.utc)
             age_days = max((now_dt - mem_dt).total_seconds() / 86400.0, 0.0)
             recency = 1.0 / (1.0 + age_days / 30.0)
         else:
