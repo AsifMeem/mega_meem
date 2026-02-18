@@ -87,7 +87,13 @@ export default function BenchPage() {
                 labelStyle={{ color: "#6B7280" }}
               />
               <Legend />
-              <Line type="monotone" dataKey="score" stroke="#2563EB" dot={false} name="Overall" />
+              <Line
+                type="monotone"
+                dataKey="score"
+                stroke="#2563EB"
+                dot={overallSeries.length <= 1}
+                name="Overall"
+              />
             </LineChart>
           </ResponsiveContainer>
         </ChartSection>
