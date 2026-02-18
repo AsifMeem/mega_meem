@@ -47,7 +47,7 @@
       "id": "preference_adherence",
       "type": "preference",
       "question": "Give me a quick plan for today.",
-      "expected_any": ["-", "•"],
+      "expected_any": ["-", "•", "1.", "2.", "3."],
       "must_have_question": true,
       "notes": "Should be concise, bullet points for plans, and end with a reflective question."
     },
