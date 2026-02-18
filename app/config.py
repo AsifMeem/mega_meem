@@ -31,6 +31,8 @@ class Settings(BaseSettings):
 
     # Context settings
     context_messages: int = 20  # Number of recent messages to pass to LLM
+    memory_top_k: int = 3  # Number of long-term memories to retrieve
+    memory_max_chars: int = 800  # Max chars of injected long-term memory
 
     # Database
     database_path: str = "./data/future_asif.db"

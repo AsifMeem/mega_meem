@@ -19,10 +19,12 @@ from app.dependencies import (
     get_message_store,
     get_trace_store,
     get_bench_store,
+    get_memory_store,
     set_llm_client,
     set_message_store,
     set_trace_store,
     set_bench_store,
+    set_memory_store,
 )
 from app.gemini_client import GeminiClient
 from app.ollama_client import OllamaClient
@@ -52,6 +54,7 @@ from app.schemas import (
 )
 from app.trace_store import DuckDBTraceStore
 from app.bench_store import DuckDBBenchStore
+from app.memory_store import DuckDBMemoryStore
 
 
 def create_llm_client() -> LLMClient | None:
@@ -82,6 +85,42 @@ def get_current_model() -> str:
     return "unknown"
 
 
+def _tokenize(text: str) -> list[str]:
+    import re
+
+    return re.findall(r"[a-zA-Z0-9%$]+", text.lower())
+
+
+def embed_text(text: str, dim: int = 256) -> list[float]:
+    vec = [0.0] * dim
+    for tok in _tokenize(text):
+        idx = hash(tok) % dim
+        vec[idx] += 1.0
+    return vec
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    import math
+
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def retrieve_memories(memory_store, query: str, top_k: int) -> list[dict]:
+    query_vec = embed_text(query)
+    memories = memory_store.list_memories()
+    scored = []
+    for m in memories:
+        score = _cosine(query_vec, m.get("vector", []))
+        scored.append((score, m))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [m for score, m in scored[:top_k] if score > 0]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     store = SqliteMessageStore(settings.database_path)
@@ -96,6 +135,10 @@ async def lifespan(app: FastAPI):
     bench_store.init()
     set_bench_store(bench_store)
 
+    memory_store = DuckDBMemoryStore(settings.trace_db_path)
+    memory_store.init()
+    set_memory_store(memory_store)
+
     llm = create_llm_client()
     if llm:
         set_llm_client(llm)
@@ -105,6 +148,7 @@ async def lifespan(app: FastAPI):
     await store.close()
     trace_store.close()
     bench_store.close()
+    memory_store.close()
 
 
 app = FastAPI(
@@ -132,10 +176,26 @@ async def chat(
     store: MessageStore = Depends(get_message_store),
     llm: LLMClient = Depends(get_llm_client),
     traces: TraceStore = Depends(get_trace_store),
+    memory=Depends(get_memory_store),
 ) -> ChatResponse:
     # Fetch recent history for context (newest-first, so reverse for chronological order)
     history_rows = await store.get_history(settings.context_messages, before=None)
     history = list(reversed(history_rows)) if history_rows else None
+
+    # Long-term memory retrieval (naive similarity)
+    memories = []
+    if settings.memory_top_k > 0:
+        memories = retrieve_memories(memory, request.message, settings.memory_top_k)
+
+    memory_context = None
+    if memories:
+        joined = "\n".join([f"- {m['content']}" for m in memories])
+        if settings.memory_max_chars and len(joined) > settings.memory_max_chars:
+            joined = joined[: settings.memory_max_chars].rsplit("\n", 1)[0]
+        memory_context = {
+            "role": "assistant",
+            "content": f"Long-term memory (most relevant):\n{joined}",
+        }
 
     # Build normalized trace fields
     context_messages = None
@@ -146,6 +206,8 @@ async def chat(
 
     # Build raw_messages_in (full conversation sent to LLM)
     raw_messages_in = []
+    if memory_context:
+        raw_messages_in.append(memory_context)
     if history:
         for msg in history:
             raw_messages_in.append({"role": msg["role"], "content": msg["content"]})
@@ -153,7 +215,10 @@ async def chat(
 
     # Call LLM with timing
     start_time = time.perf_counter()
-    response_text = await llm.get_response(request.message, history=history)
+    llm_history = history or []
+    if memory_context:
+        llm_history = [memory_context] + llm_history
+    response_text = await llm.get_response(request.message, history=llm_history)
     latency_ms = (time.perf_counter() - start_time) * 1000
 
     # Get active session
@@ -174,6 +239,11 @@ async def chat(
 
     await store.save_message("user", request.message)
     msg_id, timestamp = await store.save_message("assistant", response_text)
+
+    # Persist to long-term memory (user + assistant)
+    memory.add_memory("user", request.message, embed_text(request.message))
+    memory.add_memory("assistant", response_text, embed_text(response_text))
+
     return ChatResponse(id=msg_id, response=response_text, timestamp=timestamp, trace_id=trace_id)
 
 
