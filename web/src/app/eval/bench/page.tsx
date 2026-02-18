@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getBenchRuns, getBenchSummary } from "@/lib/api";
-import type { BenchRun, BenchSummaryRow } from "@/lib/types";
+import { getBenchRuns } from "@/lib/api";
+import type { BenchRun } from "@/lib/types";
+import { buildAgeBreakdown, buildMetricSeries, buildTypeBreakdown } from "@/lib/benchCharts";
 import {
   LineChart,
   Line,
@@ -18,15 +19,13 @@ import {
 
 export default function BenchPage() {
   const [runs, setRuns] = useState<BenchRun[]>([]);
-  const [summary, setSummary] = useState<BenchSummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getBenchRuns(200), getBenchSummary()])
-      .then(([rs, sm]) => {
+    getBenchRuns(200)
+      .then((rs) => {
         setRuns(rs.runs);
-        setSummary(sm.rows);
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load benchmark data");
@@ -61,9 +60,9 @@ export default function BenchPage() {
     );
   }
 
-  const overallSeries = buildMetricSeries(summary, "score_overall");
-  const typeBreakdown = buildTypeBreakdown(summary);
-  const ageBreakdown = buildAgeBreakdown(summary);
+  const overallSeries = buildMetricSeries(runs, "score_overall");
+  const typeBreakdown = buildTypeBreakdown(runs);
+  const ageBreakdown = buildAgeBreakdown(runs);
 
   return (
     <div className="px-6 py-8">
@@ -180,45 +179,9 @@ function ChartSection({ title, children }: { title: string; children: React.Reac
   );
 }
 
-function buildMetricSeries(rows: BenchSummaryRow[], metric: string) {
-  const filtered = rows.filter((r) => r.metric === metric);
-  const sorted = [...filtered].sort(
-    (a, b) => new Date(a.started_at ?? 0).getTime() - new Date(b.started_at ?? 0).getTime()
-  );
-  return sorted.map((r) => ({
-    time: r.started_at ? new Date(r.started_at).toLocaleString() : "-",
-    score: r.value,
-  }));
-}
+// (moved to lib/benchCharts)
 
-function buildTypeBreakdown(rows: BenchSummaryRow[]) {
-  const latest = rows
-    .slice()
-    .sort((a, b) => new Date(b.started_at ?? 0).getTime() - new Date(a.started_at ?? 0).getTime());
-  const latestRunId = latest[0]?.run_id;
-  const filtered = latest.filter((r) => r.run_id === latestRunId && r.metric.startsWith("score_"));
-  return filtered
-    .filter((r) => r.metric !== "score_overall" && !r.metric.startsWith("score_age_"))
-    .map((r) => ({
-      metric: r.metric.replace("score_", ""),
-      value: r.value,
-    }));
-}
-
-function buildAgeBreakdown(rows: BenchSummaryRow[]) {
-  const latest = rows
-    .slice()
-    .sort((a, b) => new Date(b.started_at ?? 0).getTime() - new Date(a.started_at ?? 0).getTime());
-  const latestRunId = latest[0]?.run_id;
-  const filtered = latest.filter(
-    (r) => r.run_id === latestRunId && r.metric.startsWith("score_age_")
-  );
-  return filtered.map((r) => ({
-    metric: r.metric.replace("score_age_", ""),
-    value: r.value,
-  }));
-}
-
+// (moved to lib/benchCharts)
 function getLatestScore(run: BenchRun | undefined) {
   if (!run?.summary || typeof run.summary !== "object") return null;
   const scores = (run.summary as { scores?: Record<string, number> }).scores;
