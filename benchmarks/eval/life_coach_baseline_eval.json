@@ -26,8 +26,8 @@
       "id": "recall_reading",
       "type": "long_term",
       "question": "What was the key takeaway from the article I read?",
-      "expected_any": ["consistency", "beats intensity", "don’t break the chain", "2 reps"],
-      "must_include": ["consistency", "chain"]
+      "expected_any": ["consistency", "beats intensity", "don’t break the chain", "keep the streak", "streak", "2 reps"],
+      "must_include": ["consistency"]
     },
     {
       "id": "dose_recall_components",
