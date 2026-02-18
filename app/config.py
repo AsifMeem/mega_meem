@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.2:8b"
     ollama_base_url: str = "http://localhost:11434"
     ollama_system_prompt: str = _DEFAULT_SYSTEM_PROMPT
+    ollama_embed_model: str | None = None  # reuse ollama_model if None
 
     # Context settings
     context_messages: int = 20  # Number of recent messages to pass to LLM

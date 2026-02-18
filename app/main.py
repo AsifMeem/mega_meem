@@ -85,18 +85,18 @@ def get_current_model() -> str:
     return "unknown"
 
 
-def _tokenize(text: str) -> list[str]:
-    import re
+async def embed_text(text: str) -> list[float]:
+    import httpx
 
-    return re.findall(r"[a-zA-Z0-9%$]+", text.lower())
-
-
-def embed_text(text: str, dim: int = 256) -> list[float]:
-    vec = [0.0] * dim
-    for tok in _tokenize(text):
-        idx = hash(tok) % dim
-        vec[idx] += 1.0
-    return vec
+    model = settings.ollama_embed_model or settings.ollama_model
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            f"{settings.ollama_base_url.rstrip('/')}/api/embeddings",
+            json={"model": model, "prompt": text},
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data.get("embedding", [])
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
@@ -110,8 +110,8 @@ def _cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
-def retrieve_memories(memory_store, query: str, top_k: int) -> list[dict]:
-    query_vec = embed_text(query)
+async def retrieve_memories(memory_store, query: str, top_k: int) -> list[dict]:
+    query_vec = await embed_text(query)
     memories = memory_store.list_memories()
     scored = []
     for m in memories:
@@ -185,7 +185,7 @@ async def chat(
     # Long-term memory retrieval (naive similarity)
     memories = []
     if settings.memory_top_k > 0:
-        memories = retrieve_memories(memory, request.message, settings.memory_top_k)
+        memories = await retrieve_memories(memory, request.message, settings.memory_top_k)
 
     memory_context = None
     if memories:
@@ -241,8 +241,10 @@ async def chat(
     msg_id, timestamp = await store.save_message("assistant", response_text)
 
     # Persist to long-term memory (user + assistant)
-    memory.add_memory("user", request.message, embed_text(request.message))
-    memory.add_memory("assistant", response_text, embed_text(response_text))
+    user_vec = await embed_text(request.message)
+    assistant_vec = await embed_text(response_text)
+    memory.add_memory("user", request.message, user_vec)
+    memory.add_memory("assistant", response_text, assistant_vec)
 
     return ChatResponse(id=msg_id, response=response_text, timestamp=timestamp, trace_id=trace_id)
 
