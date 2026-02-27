@@ -1,9 +1,12 @@
 import logging
+import os
+import secrets
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,6 +32,7 @@ from app.dependencies import (
 )
 from app.gemini_client import GeminiClient
 from app.ollama_client import OllamaClient
+from app.openai_client import OpenAICompatClient
 from app.protocols import LLMClient, MessageStore, TraceStore
 from app.schemas import (
     AdminMessage,
@@ -56,6 +60,7 @@ from app.schemas import (
 from app.trace_store import DuckDBTraceStore
 from app.bench_store import DuckDBBenchStore
 from app.memory_store import DuckDBMemoryStore
+from app.preferences import build_preference_context
 
 
 def create_llm_client() -> LLMClient | None:
@@ -72,6 +77,13 @@ def create_llm_client() -> LLMClient | None:
         return OllamaClient(
             settings.ollama_model, settings.ollama_base_url, settings.ollama_system_prompt
         )
+    elif settings.llm_provider == "openai_compat":
+        return OpenAICompatClient(
+            base_url=settings.openai_compat_base_url,
+            model=settings.openai_compat_model,
+            system_prompt=settings.openai_compat_system_prompt,
+            api_key=settings.openai_compat_api_key or None,
+        )
     return None
 
 
@@ -83,6 +95,8 @@ def get_current_model() -> str:
         return settings.anthropic_model
     elif settings.llm_provider == "ollama":
         return settings.ollama_model
+    elif settings.llm_provider == "openai_compat":
+        return settings.openai_compat_model
     return "unknown"
 
 
@@ -202,17 +216,48 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://*.vercel.app",
+]
+if settings.cors_extra_origins:
+    _cors_origins.extend(
+        origin.strip()
+        for origin in settings.cors_extra_origins.split(",")
+        if origin.strip()
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "https://*.vercel.app",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def api_key_middleware(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    api_key = os.environ.get("API_KEY", "")
+    if api_key:
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Missing or invalid API key"},
+            )
+        token = auth_header[7:]
+        if not secrets.compare_digest(token, api_key):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Missing or invalid API key"},
+            )
+
+    return await call_next(request)
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -262,10 +307,17 @@ async def chat(
 
     trigger_message = {"role": "user", "content": request.message}
 
+    preference_context = build_preference_context(history or [], min_count=2)
+    preference_message = None
+    if preference_context:
+        preference_message = {"role": "assistant", "content": preference_context}
+
     # Build raw_messages_in (full conversation sent to LLM)
     raw_messages_in = []
     if memory_context:
         raw_messages_in.append(memory_context)
+    if preference_message:
+        raw_messages_in.append(preference_message)
     if history:
         for msg in history:
             raw_messages_in.append({"role": msg["role"], "content": msg["content"]})
@@ -274,6 +326,8 @@ async def chat(
     # Call LLM with timing
     start_time = time.perf_counter()
     llm_history = history or []
+    if preference_message:
+        llm_history = [preference_message] + llm_history
     if memory_context:
         llm_history = [memory_context] + llm_history
     response_text = await llm.get_response(request.message, history=llm_history)
