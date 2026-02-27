@@ -145,7 +145,9 @@ export async function getMessageStats(): Promise<MessageStats> {
 }
 
 export async function getPerformanceStats(): Promise<PerformanceStats> {
-  const res = await fetch(`${API_URL}/admin/stats/performance`);
+  const res = await fetch(`${API_URL}/admin/stats/performance`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch performance stats: ${res.status}`);
   }
@@ -160,7 +162,9 @@ export async function getBenchRuns(
     limit: String(limit),
     offset: String(offset),
   });
-  const res = await fetch(`${API_URL}/admin/bench/runs?${params}`);
+  const res = await fetch(`${API_URL}/admin/bench/runs?${params}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch bench runs: ${res.status}`);
   }
@@ -168,7 +172,9 @@ export async function getBenchRuns(
 }
 
 export async function getBenchRun(runId: string): Promise<BenchRunDetail> {
-  const res = await fetch(`${API_URL}/admin/bench/run/${runId}`);
+  const res = await fetch(`${API_URL}/admin/bench/run/${runId}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch bench run: ${res.status}`);
   }
@@ -176,7 +182,9 @@ export async function getBenchRun(runId: string): Promise<BenchRunDetail> {
 }
 
 export async function getBenchSummary(): Promise<BenchSummaryResponse> {
-  const res = await fetch(`${API_URL}/admin/bench/summary`);
+  const res = await fetch(`${API_URL}/admin/bench/summary`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch bench summary: ${res.status}`);
   }
