@@ -19,21 +19,24 @@ from app.claude_client import ClaudeClient
 from app.config import settings
 from app.db import SqliteMessageStore
 from app.dependencies import (
+    get_embedder,
     get_llm_client,
     get_message_store,
     get_trace_store,
     get_bench_store,
     get_memory_store,
+    set_embedder,
     set_llm_client,
     set_message_store,
     set_trace_store,
     set_bench_store,
     set_memory_store,
 )
+from app.embedders import OllamaEmbedder, OpenAICompatEmbedder
 from app.gemini_client import GeminiClient
 from app.ollama_client import OllamaClient
 from app.openai_client import OpenAICompatClient
-from app.protocols import LLMClient, MessageStore, TraceStore
+from app.protocols import EmbeddingProvider, LLMClient, MessageStore, TraceStore
 from app.schemas import (
     AdminMessage,
     AdminMessagesResponse,
@@ -87,6 +90,22 @@ def create_llm_client() -> LLMClient | None:
     return None
 
 
+def create_embedder() -> EmbeddingProvider:
+    """Create an embedding provider based on config."""
+    if settings.embedding_provider == "openai_compat":
+        base_url = settings.embedding_base_url or settings.openai_compat_base_url
+        model = settings.embedding_model or "BAAI/bge-small-en-v1.5"
+        return OpenAICompatEmbedder(
+            base_url=base_url,
+            model=model,
+            api_key=settings.embedding_api_key or None,
+        )
+    # Default: ollama
+    base_url = settings.embedding_base_url or settings.ollama_base_url
+    model = settings.embedding_model or settings.ollama_embed_model or settings.ollama_model
+    return OllamaEmbedder(base_url=base_url, model=model)
+
+
 def get_current_model() -> str:
     """Get the current model name based on provider."""
     if settings.llm_provider == "gemini":
@@ -98,20 +117,6 @@ def get_current_model() -> str:
     elif settings.llm_provider == "openai_compat":
         return settings.openai_compat_model
     return "unknown"
-
-
-async def embed_text(text: str) -> list[float]:
-    import httpx
-
-    model = settings.ollama_embed_model or settings.ollama_model
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            f"{settings.ollama_base_url.rstrip('/')}/api/embeddings",
-            json={"model": model, "prompt": text},
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data.get("embedding", [])
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
@@ -143,13 +148,14 @@ def compute_salience(text: str) -> float:
 
 async def retrieve_memories(
     memory_store,
+    embedder: EmbeddingProvider,
     query: str,
     top_k: int,
     now_dt: datetime | None = None,
 ) -> list[dict]:
     import math
 
-    query_vec = await embed_text(query)
+    query_vec = await embedder.embed(query)
     memories = memory_store.list_memories()
     scored = []
     now_dt = now_dt or datetime.now(timezone.utc)
@@ -201,6 +207,9 @@ async def lifespan(app: FastAPI):
     llm = create_llm_client()
     if llm:
         set_llm_client(llm)
+
+    embedder = create_embedder()
+    set_embedder(embedder)
 
     yield
 
@@ -268,6 +277,7 @@ async def chat(
     llm: LLMClient = Depends(get_llm_client),
     traces: TraceStore = Depends(get_trace_store),
     memory=Depends(get_memory_store),
+    embedder: EmbeddingProvider = Depends(get_embedder),
 ) -> ChatResponse:
     # Fetch recent history for context (newest-first, so reverse for chronological order)
     history_rows = await store.get_history(settings.context_messages, before=None)
@@ -285,7 +295,7 @@ async def chat(
     memories = []
     if settings.memory_top_k > 0:
         memories = await retrieve_memories(
-            memory, request.message, settings.memory_top_k, now_dt=now_dt
+            memory, embedder, request.message, settings.memory_top_k, now_dt=now_dt
         )
         if memories:
             memory.mark_recalled([m["id"] for m in memories], recalled_at=now_dt)
@@ -354,8 +364,8 @@ async def chat(
 
     # Persist to long-term memory (user + assistant) — skip when embeddings unavailable
     if settings.memory_top_k > 0:
-        user_vec = await embed_text(request.message)
-        assistant_vec = await embed_text(response_text)
+        user_vec = await embedder.embed(request.message)
+        assistant_vec = await embedder.embed(response_text)
         user_salience = compute_salience(request.message)
         assistant_salience = compute_salience(response_text)
         memory.add_memory(

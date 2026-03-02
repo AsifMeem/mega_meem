@@ -1,11 +1,11 @@
 import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.dependencies import set_llm_client, set_message_store, set_trace_store, set_memory_store
-from tests.conftest import FakeLLMClient, FakeMemoryStore, FakeMessageStore, FakeTraceStore
+from app.dependencies import set_embedder, set_llm_client, set_message_store, set_trace_store, set_memory_store
+from tests.conftest import FakeEmbedder, FakeLLMClient, FakeMemoryStore, FakeMessageStore, FakeTraceStore
 
 
 TEST_API_KEY = "test-secret-key-123"
@@ -18,11 +18,8 @@ async def authed_client():
     set_llm_client(FakeLLMClient())
     set_trace_store(FakeTraceStore())
     set_memory_store(FakeMemoryStore())
-    with (
-        patch.dict(os.environ, {"API_KEY": TEST_API_KEY}),
-        patch("app.main.embed_text", new_callable=AsyncMock, return_value=[0.0] * 64),
-    ):
-        # Re-import app to pick up new settings
+    set_embedder(FakeEmbedder())
+    with patch.dict(os.environ, {"API_KEY": TEST_API_KEY}):
         from app.main import app
 
         transport = ASGITransport(app=app)
@@ -37,10 +34,8 @@ async def unauthed_client():
     set_llm_client(FakeLLMClient())
     set_trace_store(FakeTraceStore())
     set_memory_store(FakeMemoryStore())
-    with (
-        patch.dict(os.environ, {"API_KEY": TEST_API_KEY}),
-        patch("app.main.embed_text", new_callable=AsyncMock, return_value=[0.0] * 64),
-    ):
+    set_embedder(FakeEmbedder())
+    with patch.dict(os.environ, {"API_KEY": TEST_API_KEY}):
         from app.main import app
 
         transport = ASGITransport(app=app)
@@ -55,10 +50,8 @@ async def no_key_configured_client():
     set_llm_client(FakeLLMClient())
     set_trace_store(FakeTraceStore())
     set_memory_store(FakeMemoryStore())
-    with (
-        patch.dict(os.environ, {"API_KEY": ""}, clear=False),
-        patch("app.main.embed_text", new_callable=AsyncMock, return_value=[0.0] * 64),
-    ):
+    set_embedder(FakeEmbedder())
+    with patch.dict(os.environ, {"API_KEY": ""}, clear=False):
         from app.main import app
 
         transport = ASGITransport(app=app)

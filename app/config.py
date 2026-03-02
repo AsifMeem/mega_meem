@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     openai_compat_api_key: str = ""
     openai_compat_system_prompt: str = _load_prompt(PROMPT_PATH)
 
+    # Embedding provider selection
+    embedding_provider: Literal["ollama", "openai_compat"] = "ollama"
+    embedding_base_url: str = ""  # defaults to ollama_base_url or openai_compat_base_url
+    embedding_model: str = ""  # defaults to ollama_embed_model or "BAAI/bge-small-en-v1.5"
+    embedding_api_key: str = ""
+
     # Context settings
     context_messages: int = 20  # Number of recent messages to pass to LLM
     memory_top_k: int = 3  # Number of long-term memories to retrieve

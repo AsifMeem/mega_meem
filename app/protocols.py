@@ -33,6 +33,10 @@ class MessageStore(Protocol):
     async def close(self) -> None: ...
 
 
+class EmbeddingProvider(Protocol):
+    async def embed(self, text: str) -> list[float]: ...
+
+
 class LLMClient(Protocol):
     async def get_response(
         self, message: str, history: list[dict] | None = None
