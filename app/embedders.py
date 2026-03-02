@@ -36,7 +36,7 @@ class OpenAICompatEmbedder:
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{self._base_url}/v1/embeddings",
                 json={"model": self._model, "input": text},
