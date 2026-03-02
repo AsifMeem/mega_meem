@@ -219,7 +219,6 @@ app = FastAPI(
 _cors_origins = [
     "http://localhost:3000",
     "http://localhost:3001",
-    "https://*.vercel.app",
 ]
 if settings.cors_extra_origins:
     _cors_origins.extend(
@@ -231,6 +230,7 @@ if settings.cors_extra_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
