@@ -352,27 +352,28 @@ async def chat(
     await store.save_message("user", request.message)
     msg_id, timestamp = await store.save_message("assistant", response_text)
 
-    # Persist to long-term memory (user + assistant)
-    user_vec = await embed_text(request.message)
-    assistant_vec = await embed_text(response_text)
-    user_salience = compute_salience(request.message)
-    assistant_salience = compute_salience(response_text)
-    memory.add_memory(
-        "user",
-        request.message,
-        user_vec,
-        created_at=now_dt,
-        salience=user_salience,
-        decay_days=120.0 if user_salience >= 1.5 else 60.0,
-    )
-    memory.add_memory(
-        "assistant",
-        response_text,
-        assistant_vec,
-        created_at=now_dt,
-        salience=assistant_salience,
-        decay_days=90.0 if assistant_salience >= 1.5 else 45.0,
-    )
+    # Persist to long-term memory (user + assistant) — skip when embeddings unavailable
+    if settings.memory_top_k > 0:
+        user_vec = await embed_text(request.message)
+        assistant_vec = await embed_text(response_text)
+        user_salience = compute_salience(request.message)
+        assistant_salience = compute_salience(response_text)
+        memory.add_memory(
+            "user",
+            request.message,
+            user_vec,
+            created_at=now_dt,
+            salience=user_salience,
+            decay_days=120.0 if user_salience >= 1.5 else 60.0,
+        )
+        memory.add_memory(
+            "assistant",
+            response_text,
+            assistant_vec,
+            created_at=now_dt,
+            salience=assistant_salience,
+            decay_days=90.0 if assistant_salience >= 1.5 else 45.0,
+        )
 
     return ChatResponse(id=msg_id, response=response_text, timestamp=timestamp, trace_id=trace_id)
 
