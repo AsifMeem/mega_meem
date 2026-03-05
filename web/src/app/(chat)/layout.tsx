@@ -12,7 +12,7 @@ export default function ChatLayout({
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
 
   return (
-    <div className="bg-chat-bg text-chat-text font-[family-name:var(--font-inter)] flex flex-col h-screen">
+    <div className="bg-chat-bg text-chat-text font-[family-name:var(--font-inter)] flex flex-col h-dvh">
       <ChatNav onNewSession={() => setSessionDialogOpen(true)} />
       <main className="flex-1 overflow-hidden">{children}</main>
       <NewSessionDialog
