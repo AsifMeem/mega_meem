@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/app-shell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,9 +12,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
-  title: "Future Me",
-  description: "Talk to a wiser version of yourself",
+  title: "AI Life Coach",
+  description: "Neurochemistry-based performance optimization",
 };
 
 export default function RootLayout({
@@ -26,9 +35,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900 flex flex-col h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${jetbrainsMono.variable} antialiased flex flex-col h-screen`}
       >
-        <AppShell>{children}</AppShell>
+        {children}
       </body>
     </html>
   );
