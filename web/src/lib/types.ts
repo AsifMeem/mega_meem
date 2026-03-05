@@ -5,11 +5,20 @@ export interface Message {
   timestamp: string;
 }
 
+export interface ScoringMetrics {
+  task_resistance: number;
+  current_friction: number;
+  tactile_yield: number;
+  bounty: number;
+  prescribed_task: string;
+}
+
 export interface ChatResponse {
   id: string;
   response: string;
   timestamp: string;
   trace_id: string;
+  scoring?: ScoringMetrics;
 }
 
 export interface HistoryResponse {
@@ -188,4 +197,34 @@ export interface BenchSummaryRow {
 
 export interface BenchSummaryResponse {
   rows: BenchSummaryRow[];
+}
+
+// DOSE Demo types
+
+export interface DoseLevels {
+  dopamine: number;
+  oxytocin: number;
+  serotonin: number;
+  endorphin: number;
+}
+
+export interface TodoItem {
+  id: string;
+  label: string;
+  done: boolean;
+  doseTarget: keyof DoseLevels;
+}
+
+export interface ActionPillOption {
+  label: string;
+  value: string;
+}
+
+export interface DemoMessage {
+  role: "user" | "assistant";
+  content: string;
+  doseLevels?: DoseLevels;
+  todos?: TodoItem[];
+  actionPills?: ActionPillOption[];
+  promptPills?: string[];
 }
