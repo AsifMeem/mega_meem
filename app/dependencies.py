@@ -1,8 +1,13 @@
-from app.protocols import LLMClient, MessageStore, TraceStore
+from app.protocols import EmbeddingProvider, LLMClient, MessageStore, TraceStore
+from app.bench_store import DuckDBBenchStore
+from app.memory_store import DuckDBMemoryStore
 
 _message_store: MessageStore | None = None
 _llm_client: LLMClient | None = None
 _trace_store: TraceStore | None = None
+_bench_store: DuckDBBenchStore | None = None
+_memory_store: DuckDBMemoryStore | None = None
+_embedder: EmbeddingProvider | None = None
 
 
 def set_message_store(store: MessageStore) -> None:
@@ -20,6 +25,16 @@ def set_trace_store(store: TraceStore) -> None:
     _trace_store = store
 
 
+def set_bench_store(store: DuckDBBenchStore) -> None:
+    global _bench_store
+    _bench_store = store
+
+
+def set_memory_store(store: DuckDBMemoryStore) -> None:
+    global _memory_store
+    _memory_store = store
+
+
 def get_message_store() -> MessageStore:
     assert _message_store is not None, "MessageStore not initialized"
     return _message_store
@@ -33,3 +48,23 @@ def get_llm_client() -> LLMClient:
 def get_trace_store() -> TraceStore:
     assert _trace_store is not None, "TraceStore not initialized"
     return _trace_store
+
+
+def get_bench_store() -> DuckDBBenchStore:
+    assert _bench_store is not None, "BenchStore not initialized"
+    return _bench_store
+
+
+def get_memory_store() -> DuckDBMemoryStore:
+    assert _memory_store is not None, "MemoryStore not initialized"
+    return _memory_store
+
+
+def set_embedder(embedder: EmbeddingProvider) -> None:
+    global _embedder
+    _embedder = embedder
+
+
+def get_embedder() -> EmbeddingProvider:
+    assert _embedder is not None, "EmbeddingProvider not initialized"
+    return _embedder

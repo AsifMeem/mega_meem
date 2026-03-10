@@ -1,8 +1,12 @@
 import logging
+import os
+import secrets
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,16 +19,24 @@ from app.claude_client import ClaudeClient
 from app.config import settings
 from app.db import SqliteMessageStore
 from app.dependencies import (
+    get_embedder,
     get_llm_client,
     get_message_store,
     get_trace_store,
+    get_bench_store,
+    get_memory_store,
+    set_embedder,
     set_llm_client,
     set_message_store,
     set_trace_store,
+    set_bench_store,
+    set_memory_store,
 )
+from app.embedders import OllamaEmbedder, OpenAICompatEmbedder
 from app.gemini_client import GeminiClient
 from app.ollama_client import OllamaClient
-from app.protocols import LLMClient, MessageStore, TraceStore
+from app.openai_client import OpenAICompatClient
+from app.protocols import EmbeddingProvider, LLMClient, MessageStore, TraceStore
 from app.schemas import (
     AdminMessage,
     AdminMessagesResponse,
@@ -44,8 +56,14 @@ from app.schemas import (
     SessionsResponse,
     Trace,
     TracesResponse,
+    BenchRunsResponse,
+    BenchRunDetail,
+    BenchSummaryResponse,
 )
 from app.trace_store import DuckDBTraceStore
+from app.bench_store import DuckDBBenchStore
+from app.memory_store import DuckDBMemoryStore
+from app.preferences import build_preference_context
 
 
 def create_llm_client() -> LLMClient | None:
@@ -62,7 +80,30 @@ def create_llm_client() -> LLMClient | None:
         return OllamaClient(
             settings.ollama_model, settings.ollama_base_url, settings.ollama_system_prompt
         )
+    elif settings.llm_provider == "openai_compat":
+        return OpenAICompatClient(
+            base_url=settings.openai_compat_base_url,
+            model=settings.openai_compat_model,
+            system_prompt=settings.openai_compat_system_prompt,
+            api_key=settings.openai_compat_api_key or None,
+        )
     return None
+
+
+def create_embedder() -> EmbeddingProvider:
+    """Create an embedding provider based on config."""
+    if settings.embedding_provider == "openai_compat":
+        base_url = settings.embedding_base_url or settings.openai_compat_base_url
+        model = settings.embedding_model or "BAAI/bge-small-en-v1.5"
+        return OpenAICompatEmbedder(
+            base_url=base_url,
+            model=model,
+            api_key=settings.embedding_api_key or None,
+        )
+    # Default: ollama
+    base_url = settings.embedding_base_url or settings.ollama_base_url
+    model = settings.embedding_model or settings.ollama_embed_model or settings.ollama_model
+    return OllamaEmbedder(base_url=base_url, model=model)
 
 
 def get_current_model() -> str:
@@ -73,7 +114,76 @@ def get_current_model() -> str:
         return settings.anthropic_model
     elif settings.llm_provider == "ollama":
         return settings.ollama_model
+    elif settings.llm_provider == "openai_compat":
+        return settings.openai_compat_model
     return "unknown"
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    import math
+
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def compute_salience(text: str) -> float:
+    import re
+
+    t = text.lower()
+    score = 1.0
+    if any(k in t for k in ["remember", "important", "goal", "deadline"]):
+        score += 1.0
+    if re.search(r"\b\d{1,2}%\b|\$\d|\b\d{1,2}/\d{1,2}\b", t):
+        score += 0.5
+    if re.search(r"\b(mon|tue|wed|thu|fri|sat|sun)\b", t):
+        score += 0.3
+    if "mrr" in t or "month" in t:
+        score += 0.3
+    return score
+
+
+async def retrieve_memories(
+    memory_store,
+    embedder: EmbeddingProvider,
+    query: str,
+    top_k: int,
+    now_dt: datetime | None = None,
+) -> list[dict]:
+    import math
+
+    query_vec = await embedder.embed(query)
+    memories = memory_store.list_memories()
+    scored = []
+    now_dt = now_dt or datetime.now(timezone.utc)
+    for m in memories:
+        base = _cosine(query_vec, m.get("vector", []))
+        created_at = m.get("created_at")
+        if created_at:
+            try:
+                mem_dt = datetime.fromisoformat(created_at)
+            except ValueError:
+                mem_dt = now_dt
+            if mem_dt.tzinfo is None:
+                mem_dt = mem_dt.replace(tzinfo=timezone.utc)
+            age_days = max((now_dt - mem_dt).total_seconds() / 86400.0, 0.0)
+        else:
+            age_days = 0.0
+
+        decay_days = m.get("decay_days") or 60.0
+        recency = math.exp(-age_days / max(decay_days, 1.0))
+        salience = m.get("salience") or 1.0
+        usage = 1.0 + math.log1p(m.get("times_recalled", 0)) * 0.2
+        source = 1.1 if m.get("role") == "user" else 1.0
+
+        final = base * recency * (1.0 + salience * 0.1) * usage * source
+        scored.append((final, m))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top = [m for score, m in scored[:top_k] if score > 0]
+    return top
 
 
 @asynccontextmanager
@@ -86,14 +196,27 @@ async def lifespan(app: FastAPI):
     trace_store.init()
     set_trace_store(trace_store)
 
+    bench_store = DuckDBBenchStore(settings.trace_db_path)
+    bench_store.init()
+    set_bench_store(bench_store)
+
+    memory_store = DuckDBMemoryStore(settings.trace_db_path)
+    memory_store.init()
+    set_memory_store(memory_store)
+
     llm = create_llm_client()
     if llm:
         set_llm_client(llm)
+
+    embedder = create_embedder()
+    set_embedder(embedder)
 
     yield
 
     await store.close()
     trace_store.close()
+    bench_store.close()
+    memory_store.close()
 
 
 app = FastAPI(
@@ -102,29 +225,90 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
+if settings.cors_extra_origins:
+    _cors_origins.extend(
+        origin.strip()
+        for origin in settings.cors_extra_origins.split(",")
+        if origin.strip()
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "https://*.vercel.app",
-    ],
+    allow_origins=_cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+@app.middleware("http")
+async def api_key_middleware(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    api_key = os.environ.get("API_KEY", "")
+    if api_key:
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Missing or invalid API key"},
+            )
+        token = auth_header[7:]
+        if not secrets.compare_digest(token, api_key):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Missing or invalid API key"},
+            )
+
+    return await call_next(request)
+
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
+    http_request: Request,
     store: MessageStore = Depends(get_message_store),
     llm: LLMClient = Depends(get_llm_client),
     traces: TraceStore = Depends(get_trace_store),
+    memory=Depends(get_memory_store),
+    embedder: EmbeddingProvider = Depends(get_embedder),
 ) -> ChatResponse:
     # Fetch recent history for context (newest-first, so reverse for chronological order)
     history_rows = await store.get_history(settings.context_messages, before=None)
     history = list(reversed(history_rows)) if history_rows else None
+
+    # Long-term memory retrieval (naive similarity)
+    simulated_time = http_request.headers.get("x-simulated-time")
+    now_dt = None
+    if simulated_time:
+        try:
+            now_dt = datetime.fromisoformat(simulated_time.replace("Z", "+00:00"))
+        except ValueError:
+            now_dt = None
+
+    memories = []
+    if settings.memory_top_k > 0:
+        memories = await retrieve_memories(
+            memory, embedder, request.message, settings.memory_top_k, now_dt=now_dt
+        )
+        if memories:
+            memory.mark_recalled([m["id"] for m in memories], recalled_at=now_dt)
+
+    memory_context = None
+    if memories:
+        joined = "\n".join([f"- {m['content']}" for m in memories])
+        if settings.memory_max_chars and len(joined) > settings.memory_max_chars:
+            joined = joined[: settings.memory_max_chars].rsplit("\n", 1)[0]
+        memory_context = {
+            "role": "assistant",
+            "content": f"Long-term memory (most relevant):\n{joined}",
+        }
 
     # Build normalized trace fields
     context_messages = None
@@ -133,8 +317,17 @@ async def chat(
 
     trigger_message = {"role": "user", "content": request.message}
 
+    preference_context = build_preference_context(history or [], min_count=2)
+    preference_message = None
+    if preference_context:
+        preference_message = {"role": "assistant", "content": preference_context}
+
     # Build raw_messages_in (full conversation sent to LLM)
     raw_messages_in = []
+    if memory_context:
+        raw_messages_in.append(memory_context)
+    if preference_message:
+        raw_messages_in.append(preference_message)
     if history:
         for msg in history:
             raw_messages_in.append({"role": msg["role"], "content": msg["content"]})
@@ -142,7 +335,12 @@ async def chat(
 
     # Call LLM with timing
     start_time = time.perf_counter()
-    response_text = await llm.get_response(request.message, history=history)
+    llm_history = history or []
+    if preference_message:
+        llm_history = [preference_message] + llm_history
+    if memory_context:
+        llm_history = [memory_context] + llm_history
+    response_text = await llm.get_response(request.message, history=llm_history)
     latency_ms = (time.perf_counter() - start_time) * 1000
 
     # Get active session
@@ -163,6 +361,30 @@ async def chat(
 
     await store.save_message("user", request.message)
     msg_id, timestamp = await store.save_message("assistant", response_text)
+
+    # Persist to long-term memory (user + assistant) — skip when embeddings unavailable
+    if settings.memory_top_k > 0:
+        user_vec = await embedder.embed(request.message)
+        assistant_vec = await embedder.embed(response_text)
+        user_salience = compute_salience(request.message)
+        assistant_salience = compute_salience(response_text)
+        memory.add_memory(
+            "user",
+            request.message,
+            user_vec,
+            created_at=now_dt,
+            salience=user_salience,
+            decay_days=120.0 if user_salience >= 1.5 else 60.0,
+        )
+        memory.add_memory(
+            "assistant",
+            response_text,
+            assistant_vec,
+            created_at=now_dt,
+            salience=assistant_salience,
+            decay_days=90.0 if assistant_salience >= 1.5 else 45.0,
+        )
+
     return ChatResponse(id=msg_id, response=response_text, timestamp=timestamp, trace_id=trace_id)
 
 
@@ -277,3 +499,35 @@ def performance_stats(
 ) -> PerformanceStats:
     stats = traces.get_performance_stats()
     return PerformanceStats(**stats)
+
+
+# --- Benchmarks ---
+
+
+@app.get("/admin/bench/runs", response_model=BenchRunsResponse)
+def list_bench_runs(
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    bench=Depends(get_bench_store),
+) -> BenchRunsResponse:
+    runs = bench.list_runs(limit=limit, offset=offset)
+    return BenchRunsResponse(runs=runs)
+
+
+@app.get("/admin/bench/run/{run_id}", response_model=BenchRunDetail)
+def get_bench_run(
+    run_id: str,
+    bench=Depends(get_bench_store),
+) -> BenchRunDetail:
+    run = bench.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Bench run not found")
+    return BenchRunDetail(**run)
+
+
+@app.get("/admin/bench/summary", response_model=BenchSummaryResponse)
+def bench_summary(
+    bench=Depends(get_bench_store),
+) -> BenchSummaryResponse:
+    rows = bench.get_summary()
+    return BenchSummaryResponse(rows=rows)

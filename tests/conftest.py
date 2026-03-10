@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.dependencies import set_llm_client, set_message_store, set_trace_store
+from app.dependencies import set_embedder, set_llm_client, set_message_store, set_trace_store, set_memory_store
 from app.main import app
 
 
@@ -296,6 +296,62 @@ class FakeTraceStore:
         }
 
 
+class FakeEmbedder:
+    """Fake embedding provider that returns zero vectors."""
+
+    async def embed(self, text: str) -> list[float]:
+        return [0.0] * 64
+
+
+class FakeMemoryStore:
+    def __init__(self):
+        self.memories: list[dict] = []
+
+    def init(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def add_memory(
+        self,
+        role: str,
+        content: str,
+        vector: list[float],
+        created_at=None,
+        salience: float = 1.0,
+        decay_days: float = 60.0,
+    ) -> str:
+        from uuid import uuid4
+
+        mem_id = uuid4().hex
+        self.memories.append({
+            "id": mem_id,
+            "role": role,
+            "content": content,
+            "vector": vector,
+            "salience": salience,
+            "decay_days": decay_days,
+        })
+        return mem_id
+
+    def list_memories(self) -> list[dict]:
+        return self.memories
+
+    def mark_recalled(self, ids: list[str], recalled_at=None) -> None:
+        pass
+
+
+@pytest.fixture
+def fake_embedder():
+    return FakeEmbedder()
+
+
+@pytest.fixture
+def fake_memory():
+    return FakeMemoryStore()
+
+
 @pytest.fixture
 def fake_store():
     return FakeMessageStore()
@@ -312,10 +368,12 @@ def fake_traces():
 
 
 @pytest.fixture
-async def client(fake_store, fake_llm, fake_traces):
+async def client(fake_store, fake_llm, fake_traces, fake_memory, fake_embedder):
     set_message_store(fake_store)
     set_llm_client(fake_llm)
     set_trace_store(fake_traces)
+    set_memory_store(fake_memory)
+    set_embedder(fake_embedder)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c

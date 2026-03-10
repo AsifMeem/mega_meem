@@ -10,17 +10,32 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-inter: var(--font-inter);
+  --font-jetbrains: var(--font-jetbrains);
+  --color-chat-bg: #121212;
+  --color-chat-surface: rgba(255, 255, 255, 0.05);
+  --color-chat-surface-hover: rgba(255, 255, 255, 0.08);
+  --color-chat-border: rgba(255, 255, 255, 0.08);
+  --color-chat-text: #f5f5f5;
+  --color-chat-muted: #a0a0a0;
+  --color-chat-accent: #2dd4bf;
+  --color-chat-accent-hover: #14b8a6;
+  --color-chat-danger: #ef4444;
+  --color-chat-danger-surface: rgba(239, 68, 68, 0.1);
+  --color-dose-dopamine: #00D4FF;
+  --color-dose-oxytocin: #FF2D78;
+  --color-dose-serotonin: #39FF14;
+  --color-dose-endorphin: #FFB800;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

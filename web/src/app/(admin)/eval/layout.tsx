@@ -7,6 +7,7 @@ const tabs = [
   { href: "/eval/traces", label: "Traces" },
   { href: "/eval/analytics", label: "Analytics" },
   { href: "/eval/compare", label: "Compare" },
+  { href: "/eval/bench", label: "Bench" },
 ];
 
 export default function EvalLayout({ children }: { children: React.ReactNode }) {

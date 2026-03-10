@@ -97,6 +97,15 @@ export function Nav({
                 >
                   Compare
                 </Link>
+                <Link
+                  href="/eval/bench"
+                  className={`block px-4 py-2 text-sm ${
+                    isActive("/eval/bench") ? "text-blue-600 bg-blue-50" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                  onClick={() => setEvalOpen(false)}
+                >
+                  Bench
+                </Link>
               </div>
             )}
           </div>

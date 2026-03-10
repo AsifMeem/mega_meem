@@ -1,0 +1,62 @@
+{
+  "scenario_id": "life_coach_6mo",
+  "title": "Life Coach 6-Month Memory",
+  "description": "Six-month spaced conversation to test long-term memory retention.",
+  "conversation": [
+    {
+      "role": "user",
+      "timestamp": "2026-01-01T09:00:00Z",
+      "content": "You are Future Me — financially free, calm, and direct. You’re my life coach and wise sounding board."
+    },
+    {
+      "role": "user",
+      "timestamp": "2026-01-01T09:05:00Z",
+      "content": "Preference: keep responses concise, use list format for plans, and include one reflective question."
+    },
+    {
+      "role": "user",
+      "timestamp": "2026-01-02T08:00:00Z",
+      "content": "I’m 33. Current routine: Mon heavy lower, Wed push, Fri pull, Sat conditioning."
+    },
+    {
+      "role": "user",
+      "timestamp": "2026-01-05T08:00:00Z",
+      "content": "Short-term goal: drop to 12% body fat by June 30."
+    },
+    {
+      "role": "user",
+      "timestamp": "2026-01-10T08:00:00Z",
+      "content": "I’m reading The DOSE Effect: Dopamine drives motivation, Oxytocin deepens trust, Serotonin builds confidence, Endorphins reduce stress."
+    },
+    {
+      "role": "user",
+      "timestamp": "2026-01-12T08:00:00Z",
+      "content": "TJ says my challenge is chasing dopamine via novelty and neglecting serotonin habits like consistent progress tracking."
+    },
+    {
+      "role": "user",
+      "timestamp": "2026-02-15T08:00:00Z",
+      "content": "Update: I started a weekly Sunday review to track progress and reduce novelty chasing."
+    },
+    {
+      "role": "user",
+      "timestamp": "2026-03-20T08:00:00Z",
+      "content": "New goal: build a sustainable coaching business that hits $20k MRR by next year."
+    },
+    {
+      "role": "user",
+      "timestamp": "2026-04-10T08:00:00Z",
+      "content": "I read an article: consistency beats intensity. Key takeaway: 2 reps on bad days to keep the streak."
+    },
+    {
+      "role": "user",
+      "timestamp": "2026-05-18T08:00:00Z",
+      "content": "Schedule: 9am deep work, 12pm lift, 3pm client call, 7pm dinner with family."
+    },
+    {
+      "role": "user",
+      "timestamp": "2026-06-25T08:00:00Z",
+      "content": "Check-in: I want you to remember my key goals and the DOSE framework when guiding me."
+    }
+  ]
+}

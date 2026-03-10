@@ -1,0 +1,69 @@
+{
+  "scenario_id": "life_coach_6mo",
+  "probes": [
+    {
+      "id": "dose_components",
+      "type": "long_term",
+      "age_bucket": "180d",
+      "question": "What does DOSE stand for in the book I mentioned?",
+      "expected_any": ["dopamine", "oxytocin", "serotonin", "endorphins"],
+      "must_include": ["dopamine", "oxytocin", "serotonin", "endorphins"]
+    },
+    {
+      "id": "dose_challenge",
+      "type": "long_term",
+      "age_bucket": "180d",
+      "question": "What did TJ say my challenge was?",
+      "expected_any": ["chasing dopamine", "novelty", "serotonin", "progress tracking"],
+      "must_include": ["dopamine", "serotonin"]
+    },
+    {
+      "id": "routine",
+      "type": "long_term",
+      "age_bucket": "180d",
+      "question": "What is my current training split?",
+      "expected_any": ["mon", "wed", "fri", "sat", "lower", "push", "pull", "conditioning"],
+      "must_include": ["mon", "wed", "fri", "sat"]
+    },
+    {
+      "id": "short_term_goal",
+      "type": "long_term",
+      "age_bucket": "180d",
+      "question": "What’s my short‑term body composition goal and deadline?",
+      "expected_any": ["12%", "june", "june 30"],
+      "must_include": ["12%", "june"]
+    },
+    {
+      "id": "business_goal",
+      "type": "long_term",
+      "age_bucket": "90d",
+      "question": "What long‑term business goal did I tell you?",
+      "expected_any": ["coaching", "$20k", "20k", "$20,000", "20,000", "MRR", "next year"],
+      "must_include": ["MRR"]
+    },
+    {
+      "id": "consistency_article",
+      "type": "long_term",
+      "age_bucket": "60d",
+      "question": "What was the key takeaway from the article I read?",
+      "expected_any": ["consistency", "beats intensity", "streak", "2 reps"],
+      "must_include": ["consistency"]
+    },
+    {
+      "id": "schedule_today",
+      "type": "coaching",
+      "age_bucket": "30d",
+      "question": "Given my schedule, what should I do before my client call?",
+      "expected_any": ["deep work", "lift", "prep", "client", "call"],
+      "must_include": []
+    },
+    {
+      "id": "preference",
+      "type": "preference",
+      "age_bucket": "180d",
+      "question": "Give me a quick plan for today.",
+      "expected_any": ["-", "•", "1.", "2.", "3."],
+      "must_have_question": true
+    }
+  ]
+}

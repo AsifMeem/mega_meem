@@ -5,11 +5,20 @@ export interface Message {
   timestamp: string;
 }
 
+export interface ScoringMetrics {
+  task_resistance: number;
+  current_friction: number;
+  tactile_yield: number;
+  bounty: number;
+  prescribed_task: string;
+}
+
 export interface ChatResponse {
   id: string;
   response: string;
   timestamp: string;
   trace_id: string;
+  scoring?: ScoringMetrics;
 }
 
 export interface HistoryResponse {
@@ -131,4 +140,91 @@ export interface AdminMessage {
 export interface AdminMessagesResponse {
   messages: AdminMessage[];
   total: number;
+}
+
+export interface BenchRun {
+  id: string;
+  scenario_id: string;
+  title: string;
+  provider: string;
+  model: string;
+  context_messages: number | null;
+  started_at: string | null;
+  ended_at: string | null;
+  notes: string | null;
+  summary: Record<string, unknown> | null;
+}
+
+export interface BenchRunsResponse {
+  runs: BenchRun[];
+}
+
+export interface BenchTurn {
+  idx: number;
+  role: string;
+  content: string;
+  response: string | null;
+  latency_ms: number | null;
+  trace_id: string | null;
+}
+
+export interface BenchProbe {
+  idx: number;
+  probe_id: string;
+  probe_type: string;
+  question: string;
+  expected: Record<string, unknown> | null;
+  response: string;
+  score: number;
+  metrics: Record<string, unknown> | null;
+}
+
+export interface BenchRunDetail extends BenchRun {
+  turns: BenchTurn[];
+  probes: BenchProbe[];
+  scores: Record<string, number>;
+}
+
+export interface BenchSummaryRow {
+  run_id: string;
+  metric: string;
+  value: number;
+  provider: string;
+  model: string;
+  scenario_id: string;
+  started_at: string | null;
+}
+
+export interface BenchSummaryResponse {
+  rows: BenchSummaryRow[];
+}
+
+// DOSE Demo types
+
+export interface DoseLevels {
+  dopamine: number;
+  oxytocin: number;
+  serotonin: number;
+  endorphin: number;
+}
+
+export interface TodoItem {
+  id: string;
+  label: string;
+  done: boolean;
+  doseTarget: keyof DoseLevels;
+}
+
+export interface ActionPillOption {
+  label: string;
+  value: string;
+}
+
+export interface DemoMessage {
+  role: "user" | "assistant";
+  content: string;
+  doseLevels?: DoseLevels;
+  todos?: TodoItem[];
+  actionPills?: ActionPillOption[];
+  promptPills?: string[];
 }

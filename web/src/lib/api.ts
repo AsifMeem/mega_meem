@@ -8,14 +8,26 @@ import type {
   SessionResponse,
   SessionsResponse,
   TracesResponse,
+  BenchRunsResponse,
+  BenchRunDetail,
+  BenchSummaryResponse,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = { ...extra };
+  if (API_KEY) {
+    headers["Authorization"] = `Bearer ${API_KEY}`;
+  }
+  return headers;
+}
 
 export async function sendMessage(message: string): Promise<ChatResponse> {
   const res = await fetch(`${API_URL}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ message }),
   });
   if (!res.ok) {
@@ -32,7 +44,9 @@ export async function getHistory(
   if (before) {
     params.set("before", before);
   }
-  const res = await fetch(`${API_URL}/chat/history?${params}`);
+  const res = await fetch(`${API_URL}/chat/history?${params}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch history: ${res.status}`);
   }
@@ -51,7 +65,9 @@ export async function getTraces(
   if (sessionId) {
     params.set("session_id", sessionId);
   }
-  const res = await fetch(`${API_URL}/admin/traces?${params}`);
+  const res = await fetch(`${API_URL}/admin/traces?${params}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch traces: ${res.status}`);
   }
@@ -65,7 +81,7 @@ export async function rateTrace(
 ): Promise<RateResponse> {
   const res = await fetch(`${API_URL}/admin/traces/${traceId}/rate`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ score, note: note ?? null }),
   });
   if (!res.ok) {
@@ -79,7 +95,7 @@ export async function createSession(
 ): Promise<SessionResponse> {
   const res = await fetch(`${API_URL}/admin/sessions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ note: note ?? null }),
   });
   if (!res.ok) {
@@ -89,7 +105,9 @@ export async function createSession(
 }
 
 export async function getSessions(): Promise<SessionsResponse> {
-  const res = await fetch(`${API_URL}/admin/sessions`);
+  const res = await fetch(`${API_URL}/admin/sessions`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch sessions: ${res.status}`);
   }
@@ -107,7 +125,9 @@ export async function getAdminMessages(opts: {
   if (opts.offset) params.set("offset", String(opts.offset));
   if (opts.role) params.set("role", opts.role);
   if (opts.q) params.set("q", opts.q);
-  const res = await fetch(`${API_URL}/admin/messages?${params}`);
+  const res = await fetch(`${API_URL}/admin/messages?${params}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch messages: ${res.status}`);
   }
@@ -115,7 +135,9 @@ export async function getAdminMessages(opts: {
 }
 
 export async function getMessageStats(): Promise<MessageStats> {
-  const res = await fetch(`${API_URL}/admin/stats/messages`);
+  const res = await fetch(`${API_URL}/admin/stats/messages`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch message stats: ${res.status}`);
   }
@@ -123,9 +145,48 @@ export async function getMessageStats(): Promise<MessageStats> {
 }
 
 export async function getPerformanceStats(): Promise<PerformanceStats> {
-  const res = await fetch(`${API_URL}/admin/stats/performance`);
+  const res = await fetch(`${API_URL}/admin/stats/performance`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch performance stats: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getBenchRuns(
+  limit = 50,
+  offset = 0
+): Promise<BenchRunsResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const res = await fetch(`${API_URL}/admin/bench/runs?${params}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch bench runs: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getBenchRun(runId: string): Promise<BenchRunDetail> {
+  const res = await fetch(`${API_URL}/admin/bench/run/${runId}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch bench run: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getBenchSummary(): Promise<BenchSummaryResponse> {
+  const res = await fetch(`${API_URL}/admin/bench/summary`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch bench summary: ${res.status}`);
   }
   return res.json();
 }
